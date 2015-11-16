@@ -226,8 +226,8 @@ class GarbageCollector:
 			new_index = self.current_moving_index
 			
 			res = self.process_pointer(self.heap[p], p)
-
-			self.heap[p] = new_index
+			if res:
+				self.heap[p] = new_index
 
 
 	def process_array(self, index):
@@ -342,7 +342,7 @@ class GarbageCollector:
 		self.heap.append(3)
 		self.heap.append(2)
 		self.heap.append(6)
-		self.heap.append(4)
+		self.heap.append(6)
 		self.heap.append("ARRAY")
 		self.heap.append(2)
 		self.heap.append(3)
@@ -366,7 +366,7 @@ class GarbageCollector:
 
 	def initialise_roots(self):
 		self.roots = []
-		self.roots.append(13)
+		self.roots.append(8)
 		
 
 def main():
