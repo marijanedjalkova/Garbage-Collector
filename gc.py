@@ -143,8 +143,69 @@ class GarbageCollector:
 		# TODO update divide index?
 		# TODO promote to next generation?
 
-	def process_root(self, heap_root_index):
+	def process_int(self, index):
 		pass
+
+	def process_string(self, index):
+		pass
+
+	def process_bool(self, index):
+		pass
+
+	def process_cons(self, index):
+		pass
+
+	def process_vector(self, index):
+		pass
+
+	def process_array(self, index):
+		pass
+
+	def process_exception(self, index):
+		pass
+
+	def process_ind(self, index):
+		pass
+
+	def process_var(self, index):
+		pass
+
+	def process_root(self, heap_root_index):
+		# go to that index
+		# depending on what it is, copy the whole block
+		# etc
+		tag = self.heap[heap_root_index]
+		if tag == self.INT:
+			self.process_int(heap_root_index)
+			return
+		if tag == self.STRING:
+			self.process_string(heap_root_index)
+			return
+		if tag == self.BOOL:
+			self.process_bool(heap_root_index)
+			return
+		if tag == self.CONS:
+			self.process_cons(heap_root_index)
+			return
+		if tag == self.VECTOR:
+			self.process_vector(heap_root_index)
+			return
+		if tag == self.ARRAY:
+			self.process_array(heap_root_index)
+			return
+		if tag == self.EXCEPTION:
+			self.process_exception(heap_root_index)
+			return
+		if tag == self.IND:
+			self.process_ind(heap_root_index)
+			return
+		if tag == self.VAR:
+			self.process_var(heap_root_index)
+			return
+			
+			print "Error tag"
+
+
 
 	def collect_garbage2(self):
 		for root in self.roots:
@@ -165,11 +226,12 @@ class GarbageCollector:
 		self.heap.append(self.FALSE)
 		self.heap.append(self.INT)
 		self.heap.append(23)
+		self.current_tracing_index = 0
+		self.current_moving_index = len(self.heap)
+		self.current_divide_index = len(self.heap)
 		for i in range(0, 40):
 			self.heap.append(None)
-		self.current_tracing_index = 0
-		self.current_moving_index = 8
-		self.current_divide_index = 8
+		
 		# this index shows where we are in the old section
 
 	def initialise_roots(self):
