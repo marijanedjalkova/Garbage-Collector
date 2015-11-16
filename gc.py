@@ -16,6 +16,7 @@ class GarbageCollector:
 		self.VAR = 19
 		self.TRUE = 1
 		self.FALSE = 0
+		self.NIL = -1
 
 	def isTag(self, item):
 		return item in ["INT", "STRING", "BOOL", "CONS", "VECTOR", "ARRAY", "EXCEPTION", "IND", "VAR", "FWD"]
@@ -75,7 +76,7 @@ class GarbageCollector:
 		print "tracing " + str(self.current_tracing_index)
 		print "________"
 
-	def process_pointer(self, begin_index, end_index):
+	def process_pointer2(self, begin_index, end_index):
 		if self.heap[begin_index] == "IND":
 			begin_index += 1
 			return False
@@ -103,8 +104,7 @@ class GarbageCollector:
 		self.heap[begin_index] = new_block_start
 		return True
 
-
-	def process_ind(self):
+	def process_ind2(self):
 		
 		# take all the pointers till the next tag
 		# begin index marks the beginning of new block in the new space
@@ -124,9 +124,7 @@ class GarbageCollector:
 			else:
 				begin_index += 1
 
-
-
-	def collect_garbage(self):
+	def collect_garbage2(self):
 		while self.current_tracing_index < self.current_divide_index:
 			
 			cell = self.heap[self.current_tracing_index]
@@ -144,19 +142,59 @@ class GarbageCollector:
 		# TODO promote to next generation?
 
 	def process_int(self, index):
-		pass
+		# length of the block is 2
+		self.heap[self.current_moving_index] = self.heap[index]
+		self.heap[index] = "FWD"
+		self.heap[self.current_moving_index + 1] = self.heap[index + 1]
+		self.heap[index + 1] = self.current_moving_index
+		self.current_moving_index += 2		
 
 	def process_string(self, index):
-		pass
+		# TODO this is obviously not right, replace
+		self.heap[self.current_moving_index] = self.heap[index]
+		self.heap[index] = "FWD"
+		self.heap[self.current_moving_index + 1] = self.heap[index + 1]
+		self.heap[index + 1] = self.current_moving_index
+		self.current_moving_index += 2
 
 	def process_bool(self, index):
-		pass
+		self.heap[self.current_moving_index] = self.heap[index]
+		self.heap[index] = "FWD"
+		self.heap[self.current_moving_index + 1] = self.heap[index + 1]
+		self.heap[index + 1] = self.current_moving_index
+		self.current_moving_index += 2
+
+	def process_pointer(self, pointer_index):
+		# pointer_index is the value that points onto the original value of the pointer
+		# e.g. if we are processing cons 6 3 then by this time the block will have been 
+		# copied into new space, and pointer_index is either 6 or 3
+		
+		tag = self.heap[pointer_index]
+		# print "pointer is " + str(pointer_index)
+		# print "tag is " + str(tag)
+		self.process_tag(tag, pointer_index)
 
 	def process_cons(self, index):
-		pass
+		block_size = 3
+		for i in range(0, block_size):
+			self.heap[self.current_moving_index + i] = self.heap[index + i]
+		self.heap[index] = "FWD"
+		self.heap[index + 1] = self.current_moving_index
+		self.heap[index + 2] = "-"
+		self.current_moving_index += block_size
+		
+		# now process moving - 2 and moving - 1
+		pointers = [self.current_moving_index - 2, self.current_moving_index - 1]
+		
+		for p in pointers:
+			new_index = self.current_moving_index
+			self.process_pointer(self.heap[p])
+			self.heap[p] = new_index
+		
 
 	def process_vector(self, index):
-		pass
+		block_size = self.heap[index + 1] + 2 
+
 
 	def process_array(self, index):
 		pass
@@ -170,47 +208,48 @@ class GarbageCollector:
 	def process_var(self, index):
 		pass
 
-	def process_root(self, heap_root_index):
-		# go to that index
-		# depending on what it is, copy the whole block
-		# etc
-		tag = self.heap[heap_root_index]
-		if tag == self.INT:
+	def process_tag(self, tag, heap_root_index):
+		if tag == self.INT or tag == "INT":
 			self.process_int(heap_root_index)
 			return
-		if tag == self.STRING:
+		if tag == self.STRING or tag == "STRING":
 			self.process_string(heap_root_index)
 			return
-		if tag == self.BOOL:
+		if tag == self.BOOL or tag == "BOOL":
 			self.process_bool(heap_root_index)
 			return
-		if tag == self.CONS:
+		if tag == self.CONS or tag == "CONS":
 			self.process_cons(heap_root_index)
 			return
-		if tag == self.VECTOR:
+		if tag == self.VECTOR or tag == "VECTOR":
 			self.process_vector(heap_root_index)
 			return
-		if tag == self.ARRAY:
+		if tag == self.ARRAY or tag == "ARRAY":
 			self.process_array(heap_root_index)
 			return
-		if tag == self.EXCEPTION:
+		if tag == self.EXCEPTION or tag == "EXCEPTION":
 			self.process_exception(heap_root_index)
 			return
-		if tag == self.IND:
+		if tag == self.IND or tag == "IND":
 			self.process_ind(heap_root_index)
 			return
-		if tag == self.VAR:
+		if tag == self.VAR or tag == "VAR":
 			self.process_var(heap_root_index)
 			return
-			
+
 			print "Error tag"
 
+	def process_root(self, heap_root_index):
+		tag = self.heap[heap_root_index]
+		self.process_tag(tag, heap_root_index)
+		
 
 
-	def collect_garbage2(self):
+	def collect_garbage(self):
 		for root in self.roots:
 			self.process_root(root)
-			
+		for i in range(0, self.current_divide_index):
+			self.heap[i] = None	
 
 
 	def initialise_heap(self):
@@ -218,14 +257,17 @@ class GarbageCollector:
 		# change the current_moving_index to show the first empty cell in the array
 		# change the current_divide_index to the same value
 		self.heap = []
-		self.heap.append(self.IND)
+		self.heap.append("IND")
 		self.heap.append(4)
-		self.heap.append(self.IND)
+		self.heap.append("IND")
 		self.heap.append(4)
-		self.heap.append(self.BOOL)
-		self.heap.append(self.FALSE)
-		self.heap.append(self.INT)
+		self.heap.append("BOOL")
+		self.heap.append(False)
+		self.heap.append("INT")
 		self.heap.append(23)
+		self.heap.append("CONS")
+		self.heap.append(6)
+		self.heap.append(4)
 		self.current_tracing_index = 0
 		self.current_moving_index = len(self.heap)
 		self.current_divide_index = len(self.heap)
@@ -236,7 +278,7 @@ class GarbageCollector:
 
 	def initialise_roots(self):
 		self.roots = []
-		self.roots.append(2)
+		self.roots.append(8)
 		
 
 
@@ -247,7 +289,7 @@ def main():
 	# at this point we have something that has to be garbage collected in the heap
 	# and also the current index shows the first empty cell after all the code
 	gc.print_status("INITIAL")
-	gc.collect_garbage2()
+	gc.collect_garbage()
 	gc.print_status("FINAL")
 	print "finished execution successfully"
 
