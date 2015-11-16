@@ -173,8 +173,7 @@ class GarbageCollector:
 		# from index is 35
 		
 		tag = self.heap[pointer_index]
-		# print "pointer is " + str(pointer_index)
-		# print "tag is " + str(tag)
+		
 		return self.process_tag(tag, pointer_index, from_index)
 
 	def process_cons(self, index):
@@ -257,9 +256,9 @@ class GarbageCollector:
 		# pointers are places in heap new space where old pointers are held.
 		for p in pointers:
 			new_index = self.current_moving_index
-			print "processing with " + str(self.heap[p])
+			
 			res = self.process_pointer(self.heap[p], p)
-			print "WAS RETURNED " + str(res)
+			
 			if res:
 				# res will be true if a new value had to be written
 				# will be false if we dealt with FWD
@@ -276,8 +275,6 @@ class GarbageCollector:
 		pass
 
 	def process_fwd(self, index, from_index):
-		print "fwd called from " + str(from_index)
-		print "hwta we write there is " + str(self.heap[index + 1])
 		self.heap[from_index] = self.heap[index + 1]
 		self.print_status("step")
 
@@ -310,10 +307,6 @@ class GarbageCollector:
 			self.process_var(heap_root_index)
 			return True
 		if tag == "FWD":
-			print "here"
-			# TODO item was already moved
-			# look at heap_root_index + 1 to see where
-			# write down that number
 			self.process_fwd(heap_root_index, from_index)
 			return False
 		print "Error tag"
@@ -327,9 +320,7 @@ class GarbageCollector:
 
 
 	def initialise_heap(self):
-		# add things to the heap, 
-		# change the current_moving_index to show the first empty cell in the array
-		# change the current_divide_index to the same value
+		
 		self.heap = []
 		self.heap.append("INT")
 		self.heap.append(77)
