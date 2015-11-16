@@ -141,6 +141,14 @@ class GarbageCollector:
 		# TODO update divide index?
 		# TODO promote to next generation?
 
+	def process_root(self, heap_root_index):
+		pass
+
+	def collect_garbage2(self):
+		for root in self.roots:
+			self.process_root(root)
+			print "processed root " + str(root)
+
 
 	def initialise_heap(self):
 		# add things to the heap, 
@@ -175,7 +183,7 @@ def main():
 	# at this point we have something that has to be garbage collected in the heap
 	# and also the current index shows the first empty cell after all the code
 	gc.print_status("INITIAL")
-	gc.collect_garbage()
+	gc.collect_garbage2()
 	gc.print_status("FINAL")
 	print "finished execution successfully"
 
