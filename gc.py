@@ -164,15 +164,18 @@ class GarbageCollector:
 		self.heap[index + 1] = self.current_moving_index
 		self.current_moving_index += 2
 
-	def process_pointer(self, pointer_index):
+	def process_pointer(self, pointer_index, from_index):
 		# pointer_index is the value that points onto the original value of the pointer
 		# e.g. if we are processing cons 6 3 then by this time the block will have been 
 		# copied into new space, and pointer_index is either 6 or 3
+		# from_pointer gives index of a heap cell where this object was referenced
+		# e.g. if after copying there was a reference to cell 6 in cell 35, 
+		# from index is 35
 		
 		tag = self.heap[pointer_index]
 		# print "pointer is " + str(pointer_index)
 		# print "tag is " + str(tag)
-		self.process_tag(tag, pointer_index)
+		return self.process_tag(tag, pointer_index, from_index)
 
 	def process_cons(self, index):
 		block_size = 3
@@ -196,7 +199,7 @@ class GarbageCollector:
 		# pointers are places in heap new space where old pointers are held.
 		for p in pointers:
 			new_index = self.current_moving_index
-			self.process_pointer(self.heap[p])
+			res = self.process_pointer(self.heap[p], p)
 			self.heap[p] = new_index
 		
 
@@ -217,67 +220,106 @@ class GarbageCollector:
 		pointers = [self.current_moving_index + k for k in 
 			range(overhead, block_size)]
 		self.current_moving_index += block_size
-		self.print_status("after copying vector")
+		
 		# pointers are places in heap new space where old pointers are held.
 		for p in pointers:
 			new_index = self.current_moving_index
-			print "new index is " + str(new_index)
-			self.process_pointer(self.heap[p])
+			
+			res = self.process_pointer(self.heap[p], p)
+
 			self.heap[p] = new_index
 
 
 	def process_array(self, index):
-		pass
+		n = self.heap[index + 1]
+		m = 1
+		for i in range(0, n):
+			m *= self.heap[index + 2 + i]
+		block_size = 2 + n + m
+		overhead = 2 + n
+		for i in range(0, block_size):
+			self.heap[self.current_moving_index + i] = self.heap[index + i]
+			if i == 0:
+				self.heap[index + i] = "FWD"
+				continue
+			if i == 1:
+				self.heap[index + i] = self.current_moving_index
+				continue
+			else:
+				self.heap[index + i] = "-"
+		
+		pointers = [self.current_moving_index + k for k in 
+			range(overhead, block_size)]
+		
+		self.current_moving_index += block_size
+		
+		# pointers are places in heap new space where old pointers are held.
+		for p in pointers:
+			new_index = self.current_moving_index
+			print "processing with " + str(self.heap[p])
+			res = self.process_pointer(self.heap[p], p)
+			print "WAS RETURNED " + str(res)
+			if res:
+				# res will be true if a new value had to be written
+				# will be false if we dealt with FWD
+				self.heap[p] = new_index
+			
 
 	def process_exception(self, index):
 		pass
 
 	def process_ind(self, index):
-		print "processing ind"
+		pass
 
 	def process_var(self, index):
 		pass
 
-	def process_tag(self, tag, heap_root_index):
+	def process_fwd(self, index, from_index):
+		print "fwd called from " + str(from_index)
+		print "hwta we write there is " + str(self.heap[index + 1])
+		self.heap[from_index] = self.heap[index + 1]
+		self.print_status("step")
+
+	def process_tag(self, tag, heap_root_index, from_index):
 		if tag == self.INT or tag == "INT":
 			self.process_int(heap_root_index)
-			return
+			return True
 		if tag == self.STRING or tag == "STRING":
 			self.process_string(heap_root_index)
-			return
+			return True
 		if tag == self.BOOL or tag == "BOOL":
 			self.process_bool(heap_root_index)
-			return
+			return True
 		if tag == self.CONS or tag == "CONS":
 			self.process_cons(heap_root_index)
-			return
+			return True
 		if tag == self.VECTOR or tag == "VECTOR":
 			self.process_vector(heap_root_index)
-			return
+			return True
 		if tag == self.ARRAY or tag == "ARRAY":
 			self.process_array(heap_root_index)
-			return
+			return True
 		if tag == self.EXCEPTION or tag == "EXCEPTION":
 			self.process_exception(heap_root_index)
-			return
+			return True
 		if tag == self.IND or tag == "IND":
 			self.process_ind(heap_root_index)
-			return
+			return True
 		if tag == self.VAR or tag == "VAR":
 			self.process_var(heap_root_index)
-			return
-
-			print "Error tag"
-
-	def process_root(self, heap_root_index):
-		tag = self.heap[heap_root_index]
-		self.process_tag(tag, heap_root_index)
-		
-
+			return True
+		if tag == "FWD":
+			print "here"
+			# TODO item was already moved
+			# look at heap_root_index + 1 to see where
+			# write down that number
+			self.process_fwd(heap_root_index, from_index)
+			return False
+		print "Error tag"
 
 	def collect_garbage(self):
 		for root in self.roots:
-			self.process_root(root)
+			self.process_pointer(root,root)
 		self.print_status("BEFORE CLEANUP")
 		for i in range(0, self.current_divide_index):
 			self.heap[i] = None	
@@ -288,8 +330,8 @@ class GarbageCollector:
 		# change the current_moving_index to show the first empty cell in the array
 		# change the current_divide_index to the same value
 		self.heap = []
-		self.heap.append("IND")
-		self.heap.append(4)
+		self.heap.append("INT")
+		self.heap.append(77)
 		self.heap.append("INT")
 		self.heap.append(4)
 		self.heap.append("BOOL")
@@ -299,6 +341,16 @@ class GarbageCollector:
 		self.heap.append("VECTOR")
 		self.heap.append(3)
 		self.heap.append(2)
+		self.heap.append(6)
+		self.heap.append(4)
+		self.heap.append("ARRAY")
+		self.heap.append(2)
+		self.heap.append(3)
+		self.heap.append(2)
+		self.heap.append(0)
+		self.heap.append(6)
+		self.heap.append(4)
+		self.heap.append(0)
 		self.heap.append(6)
 		self.heap.append(4)
 		self.heap.append("CONS")
@@ -314,9 +366,8 @@ class GarbageCollector:
 
 	def initialise_roots(self):
 		self.roots = []
-		self.roots.append(8)
+		self.roots.append(13)
 		
-
 
 def main():
 	gc = GarbageCollector()
