@@ -9,10 +9,6 @@ class GarbageCollector:
 		return item in ["INT", "STRING", "BOOL", "CONS", "VECTOR", "ARRAY", "EXCEPTION", "IND", "VAR", "FWD"]
 
 	def move_pointer_block(self):
-		global current_moving_index
-		global current_tracing_index
-		global current_divide_index
-		global heap
 		
 		new_block_start = current_moving_index
 		# print "WILL PASTE HERE: " + str(current_moving_index)
