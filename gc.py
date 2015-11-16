@@ -189,8 +189,9 @@ class GarbageCollector:
 				self.heap[index + i] = "-"
 		
 		
-		pointers = [self.current_moving_index + k for k in range(1, block_size - overhead + 1)]
-		print pointers
+		pointers = [self.current_moving_index + k for k in 
+			range(overhead, block_size)]
+		
 		self.current_moving_index += block_size
 		# pointers are places in heap new space where old pointers are held.
 		for p in pointers:
@@ -213,8 +214,16 @@ class GarbageCollector:
 			else:
 				self.heap[index + i] = "-"
 		
-		pointers = [self.current_moving_index + k for k in range(1, block_size - overhead + 1)]
+		pointers = [self.current_moving_index + k for k in 
+			range(overhead, block_size)]
 		self.current_moving_index += block_size
+		self.print_status("after copying vector")
+		# pointers are places in heap new space where old pointers are held.
+		for p in pointers:
+			new_index = self.current_moving_index
+			print "new index is " + str(new_index)
+			self.process_pointer(self.heap[p])
+			self.heap[p] = new_index
 
 
 	def process_array(self, index):
@@ -224,7 +233,7 @@ class GarbageCollector:
 		pass
 
 	def process_ind(self, index):
-		pass
+		print "processing ind"
 
 	def process_var(self, index):
 		pass
@@ -281,17 +290,17 @@ class GarbageCollector:
 		self.heap = []
 		self.heap.append("IND")
 		self.heap.append(4)
-		self.heap.append("IND")
+		self.heap.append("INT")
 		self.heap.append(4)
 		self.heap.append("BOOL")
 		self.heap.append(False)
 		self.heap.append("INT")
 		self.heap.append(23)
-		"""self.heap.append("VECTOR")
+		self.heap.append("VECTOR")
 		self.heap.append(3)
 		self.heap.append(2)
 		self.heap.append(6)
-		self.heap.append(4)"""
+		self.heap.append(4)
 		self.heap.append("CONS")
 		self.heap.append(6)
 		self.heap.append(4)
