@@ -176,16 +176,23 @@ class GarbageCollector:
 
 	def process_cons(self, index):
 		block_size = 3
+		overhead = 1 # overhead size is not pointers - tag, num of elements etc
 		for i in range(0, block_size):
 			self.heap[self.current_moving_index + i] = self.heap[index + i]
-		self.heap[index] = "FWD"
-		self.heap[index + 1] = self.current_moving_index
-		self.heap[index + 2] = "-"
+			if i == 0:
+				self.heap[index + i] = "FWD"
+				continue
+			if i == 1:
+				self.heap[index + i] = self.current_moving_index
+				continue
+			else:
+				self.heap[index + i] = "-"
+		
+		
+		pointers = [self.current_moving_index + k for k in range(1, block_size - overhead + 1)]
+		print pointers
 		self.current_moving_index += block_size
-		
-		# now process moving - 2 and moving - 1
-		pointers = [self.current_moving_index - 2, self.current_moving_index - 1]
-		
+		# pointers are places in heap new space where old pointers are held.
 		for p in pointers:
 			new_index = self.current_moving_index
 			self.process_pointer(self.heap[p])
@@ -193,7 +200,21 @@ class GarbageCollector:
 		
 
 	def process_vector(self, index):
-		block_size = self.heap[index + 1] + 2 
+		block_size = self.heap[index + 1] + 2
+		overhead = 2 # overhead size is not pointers - tag, num of elements etc 
+		for i in range(0, block_size):
+			self.heap[self.current_moving_index + i] = self.heap[index + i]
+			if i == 0:
+				self.heap[index + i] = "FWD"
+				continue
+			if i == 1:
+				self.heap[index + i] = self.current_moving_index
+				continue
+			else:
+				self.heap[index + i] = "-"
+		
+		pointers = [self.current_moving_index + k for k in range(1, block_size - overhead + 1)]
+		self.current_moving_index += block_size
 
 
 	def process_array(self, index):
@@ -248,6 +269,7 @@ class GarbageCollector:
 	def collect_garbage(self):
 		for root in self.roots:
 			self.process_root(root)
+		self.print_status("BEFORE CLEANUP")
 		for i in range(0, self.current_divide_index):
 			self.heap[i] = None	
 
@@ -265,6 +287,11 @@ class GarbageCollector:
 		self.heap.append(False)
 		self.heap.append("INT")
 		self.heap.append(23)
+		"""self.heap.append("VECTOR")
+		self.heap.append(3)
+		self.heap.append(2)
+		self.heap.append(6)
+		self.heap.append(4)"""
 		self.heap.append("CONS")
 		self.heap.append(6)
 		self.heap.append(4)
