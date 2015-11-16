@@ -14,6 +14,8 @@ class GarbageCollector:
 		self.EXCEPTION = 17
 		self.IND = 18
 		self.VAR = 19
+		self.TRUE = 1
+		self.FALSE = 0
 
 	def isTag(self, item):
 		return item in ["INT", "STRING", "BOOL", "CONS", "VECTOR", "ARRAY", "EXCEPTION", "IND", "VAR", "FWD"]
@@ -147,7 +149,7 @@ class GarbageCollector:
 	def collect_garbage2(self):
 		for root in self.roots:
 			self.process_root(root)
-			print "processed root " + str(root)
+			
 
 
 	def initialise_heap(self):
@@ -155,13 +157,13 @@ class GarbageCollector:
 		# change the current_moving_index to show the first empty cell in the array
 		# change the current_divide_index to the same value
 		self.heap = []
-		self.heap.append("IND")
+		self.heap.append(self.IND)
 		self.heap.append(4)
-		self.heap.append("IND")
+		self.heap.append(self.IND)
 		self.heap.append(4)
-		self.heap.append("BOOL")
-		self.heap.append(False)
-		self.heap.append("INT")
+		self.heap.append(self.BOOL)
+		self.heap.append(self.FALSE)
+		self.heap.append(self.INT)
 		self.heap.append(23)
 		for i in range(0, 40):
 			self.heap.append(None)
@@ -172,7 +174,7 @@ class GarbageCollector:
 
 	def initialise_roots(self):
 		self.roots = []
-		roots.append(2)
+		self.roots.append(2)
 		
 
 
