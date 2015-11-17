@@ -176,9 +176,10 @@ class GarbageCollector:
 		
 		return self.process_tag(tag, pointer_index, from_index)
 
-	def process_cons(self, index):
-		block_size = 3
-		overhead = 1 # overhead size is not pointers - tag, num of elements etc
+
+	def process_block(self, block_size, overhead, index):
+		# this is for common blocks such as cons, arrays, vectors
+		# since they have a lot in common
 		for i in range(0, block_size):
 			self.heap[self.current_moving_index + i] = self.heap[index + i]
 			if i == 0:
@@ -201,33 +202,18 @@ class GarbageCollector:
 			res = self.process_pointer(self.heap[p], p)
 			if res:
 				self.heap[p] = new_index
+
+
+	def process_cons(self, index):
+		block_size = 3
+		overhead = 1 # overhead size is not pointers - tag, num of elements etc
+		self.process_block(block_size, overhead, index)
 		
 
 	def process_vector(self, index):
 		block_size = self.heap[index + 1] + 2
-		overhead = 2 # overhead size is not pointers - tag, num of elements etc 
-		for i in range(0, block_size):
-			self.heap[self.current_moving_index + i] = self.heap[index + i]
-			if i == 0:
-				self.heap[index + i] = "FWD"
-				continue
-			if i == 1:
-				self.heap[index + i] = self.current_moving_index
-				continue
-			else:
-				self.heap[index + i] = "-"
-		
-		pointers = [self.current_moving_index + k for k in 
-			range(overhead, block_size)]
-		self.current_moving_index += block_size
-		
-		# pointers are places in heap new space where old pointers are held.
-		for p in pointers:
-			new_index = self.current_moving_index
-			
-			res = self.process_pointer(self.heap[p], p)
-			if res:
-				self.heap[p] = new_index
+		overhead = 2 # overhead size is not pointers - tag, num of elements etc
+		self.process_block(block_size, overhead, index) 
 
 
 	def process_array(self, index):
@@ -237,46 +223,22 @@ class GarbageCollector:
 			m *= self.heap[index + 2 + i]
 		block_size = 2 + n + m
 		overhead = 2 + n
-		for i in range(0, block_size):
-			self.heap[self.current_moving_index + i] = self.heap[index + i]
-			if i == 0:
-				self.heap[index + i] = "FWD"
-				continue
-			if i == 1:
-				self.heap[index + i] = self.current_moving_index
-				continue
-			else:
-				self.heap[index + i] = "-"
-		
-		pointers = [self.current_moving_index + k for k in 
-			range(overhead, block_size)]
-		
-		self.current_moving_index += block_size
-		
-		# pointers are places in heap new space where old pointers are held.
-		for p in pointers:
-			new_index = self.current_moving_index
-			
-			res = self.process_pointer(self.heap[p], p)
-			
-			if res:
-				# res will be true if a new value had to be written
-				# will be false if we dealt with FWD
-				self.heap[p] = new_index
+		self.process_block(block_size, overhead, index)
 			
 
 	def process_exception(self, index):
 		pass
 
 	def process_ind(self, index):
-		pass
+		# go to heap[index + 1] 
+		self.process_pointer(self.heap[index+1], index + 1)
 
 	def process_var(self, index):
 		pass
 
 	def process_fwd(self, index, from_index):
 		self.heap[from_index] = self.heap[index + 1]
-		self.print_status("step")
+		
 
 	def process_tag(self, tag, heap_root_index, from_index):
 		if tag == self.INT or tag == "INT":
@@ -311,9 +273,11 @@ class GarbageCollector:
 			return False
 		print "Error tag"
 
+
 	def collect_garbage(self):
 		for root in self.roots:
-			self.process_pointer(root,root)
+			self.process_pointer(root, root)
+			
 		self.print_status("BEFORE CLEANUP")
 		for i in range(0, self.current_divide_index):
 			self.heap[i] = None	
@@ -324,8 +288,8 @@ class GarbageCollector:
 		self.heap = []
 		self.heap.append("INT")
 		self.heap.append(77)
-		self.heap.append("INT")
-		self.heap.append(4)
+		self.heap.append("IND")
+		self.heap.append(0)
 		self.heap.append("BOOL")
 		self.heap.append(False)
 		self.heap.append("INT")
@@ -358,6 +322,7 @@ class GarbageCollector:
 
 	def initialise_roots(self):
 		self.roots = []
+		self.roots.append(13)
 		self.roots.append(23)
 		
 
