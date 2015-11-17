@@ -286,32 +286,20 @@ class GarbageCollector:
 	def initialise_heap(self):
 		
 		self.heap = []
-		self.heap.append("INT")
-		self.heap.append(77)
-		self.heap.append("IND")
-		self.heap.append(0)
-		self.heap.append("BOOL")
-		self.heap.append(False)
-		self.heap.append("INT")
-		self.heap.append(23)
-		self.heap.append("VECTOR")
-		self.heap.append(3)
-		self.heap.append(2)
-		self.heap.append(6)
-		self.heap.append(6)
-		self.heap.append("ARRAY")
-		self.heap.append(2)
-		self.heap.append(3)
-		self.heap.append(2)
-		self.heap.append(0)
-		self.heap.append(6)
-		self.heap.append(4)
-		self.heap.append(0)
-		self.heap.append(6)
-		self.heap.append(4)
-		self.heap.append("CONS")
-		self.heap.append(6)
-		self.heap.append(6)
+		self.heap.extend(["INT", 77])
+		
+		self.heap.extend(["IND", 0])
+
+		self.heap.extend(["BOOL", False])
+		
+		self.heap.extend(["INT", 23])
+
+		self.heap.extend(["VECTOR", 3, 2, 6, 6])
+
+		self.heap.extend(["ARRAY", 2, 3, 2, 0, 6, 4, 0, 6, 4])
+		
+		self.heap.extend(["CONS", 6, 6])
+		
 		self.current_tracing_index = 0
 		self.current_moving_index = len(self.heap)
 		self.current_divide_index = len(self.heap)
