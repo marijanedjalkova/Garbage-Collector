@@ -245,7 +245,12 @@ class GarbageCollector:
 	def process_exception(self, index):
 		# exception has a model of EXCEPTION e p, where e is name 
 		# and p is pointer. e has to be in the mapping table. Treat as var
-
+		exception_code = self.heap[index + 1]
+		if exception_code in self.mapping_table:
+			# length of the block is 2
+			exception_tuple = self.mapping_table.pop(exception_code) # returns ("myVar", False)
+			self.mapping_table[exception_code] = (exception_tuple[0], True) # mark as checked
+			self.process_block(3, 1, index)
 
 
 	def process_ind(self, index):
