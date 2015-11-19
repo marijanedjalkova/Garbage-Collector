@@ -21,6 +21,7 @@ class GarbageCollector:
 	def isTag(self, item):
 		return item in ["INT", "STRING", "BOOL", "CONS", "VECTOR", "ARRAY", "EXCEPTION", "IND", "VAR", "FWD"]
 
+	""" This is old version. Don't use it"""
 	def move_pointer_block(self):
 		
 		new_block_start = self.current_moving_index
@@ -51,6 +52,7 @@ class GarbageCollector:
 				self.heap[item] = None
 		#now the new block is in place and the old place points to it
 
+	""" This is old version. Don't use it"""
 	def copy_block(self, from_index):
 		saved_old_locations = []
 		# print "copying " + str(heap[from_index])
@@ -72,10 +74,12 @@ class GarbageCollector:
 		print "--------------"
 		print desc
 		print self.heap
+		print self.mapping_table
 		print "moving " + str(self.current_moving_index)
 		print "tracing " + str(self.current_tracing_index)
 		print "________"
 
+	""" This is old version. Don't use it"""
 	def process_pointer2(self, begin_index, end_index):
 		if self.heap[begin_index] == "IND":
 			begin_index += 1
@@ -104,6 +108,7 @@ class GarbageCollector:
 		self.heap[begin_index] = new_block_start
 		return True
 
+	""" This is old version. Don't use it"""
 	def process_ind2(self):
 		
 		# take all the pointers till the next tag
@@ -124,6 +129,7 @@ class GarbageCollector:
 			else:
 				begin_index += 1
 
+	""" This is old version. Don't use it"""
 	def collect_garbage2(self):
 		while self.current_tracing_index < self.current_divide_index:
 			
@@ -141,6 +147,7 @@ class GarbageCollector:
 		# TODO update divide index?
 		# TODO promote to next generation?
 
+
 	def process_int(self, index):
 		# length of the block is 2
 		self.heap[self.current_moving_index] = self.heap[index]
@@ -150,12 +157,21 @@ class GarbageCollector:
 		self.current_moving_index += 2		
 
 	def process_string(self, index):
-		# TODO this is obviously not right, replace
-		self.heap[self.current_moving_index] = self.heap[index]
-		self.heap[index] = "FWD"
-		self.heap[self.current_moving_index + 1] = self.heap[index + 1]
-		self.heap[index + 1] = self.current_moving_index
-		self.current_moving_index += 2
+		# this is implemented as a var, i.e. the string object lies in the 
+		# mapping table together with its code. 
+		# when a string is referenced, check it up in the mapping table and copy.
+		# in the mapping table, mark as checked.
+		# mention in the report that it actually clears the memory
+		string_code = self.heap[index + 1]
+		if string_code in self.mapping_table:
+			# length of the block is 2
+			string_tuple = self.mapping_table.pop(string_code) # returns ("myVar", False)
+			self.mapping_table[string_code] = (string_tuple[0], True) # mark as checked
+			self.heap[self.current_moving_index] = self.heap[index]
+			self.heap[index] = "FWD"
+			self.heap[self.current_moving_index + 1] = self.heap[index + 1]
+			self.heap[index + 1] = self.current_moving_index
+			self.current_moving_index += 2
 
 	def process_bool(self, index):
 		self.heap[self.current_moving_index] = self.heap[index]
@@ -227,14 +243,32 @@ class GarbageCollector:
 			
 
 	def process_exception(self, index):
-		pass
+		# exception has a model of EXCEPTION e p, where e is name 
+		# and p is pointer. e has to be in the mapping table. Treat as var
+
+
 
 	def process_ind(self, index):
 		# go to heap[index + 1] 
 		self.process_pointer(self.heap[index+1], index + 1)
 
 	def process_var(self, index):
-		pass
+		# look it up in the mapping table
+		# if it is not there, don't do anything? or just copy
+		# if it is there, copy
+		# remove unused things from the mapping table
+		# explain in report that only roots are considered
+		var_code = self.heap[index + 1]
+		if var_code in self.mapping_table:
+			# length of the block is 2
+			var_tuple = self.mapping_table.pop(var_code) # returns ("myVar", False)
+			self.mapping_table[var_code] = (var_tuple[0], True) # mark as checked
+			self.heap[self.current_moving_index] = self.heap[index]
+			self.heap[index] = "FWD"
+			self.heap[self.current_moving_index + 1] = self.heap[index + 1]
+			self.heap[index + 1] = self.current_moving_index
+			self.current_moving_index += 2
+
 
 	def process_fwd(self, index, from_index):
 		self.heap[from_index] = self.heap[index + 1]
@@ -313,15 +347,30 @@ class GarbageCollector:
 		self.roots.append(13)
 		self.roots.append(23)
 		
+	def initialise_mapping_table(self):
+		self.mapping_table = {}
+		self.mapping_table[101] = ("myvar", False)
+		self.mapping_table[201] = ("this wonderful string", False)
+
+	def clean_mapping_table(self):
+		for code, mapping_tuple in self.mapping_table:
+			if mapping_tuple[1]==False:
+				self.mapping_table.pop(code)
+			else:
+				self.mapping_table.pop(code)
+				self.mapping_table[code] = (mapping_tuple[0], False)
+
 
 def main():
 	gc = GarbageCollector()
 	gc.initialise_heap()
 	gc.initialise_roots()
+	gc.initialise_mapping_table()
 	# at this point we have something that has to be garbage collected in the heap
 	# and also the current index shows the first empty cell after all the code
 	gc.print_status("INITIAL")
 	gc.collect_garbage()
+	gc.clean_mapping_table()
 	gc.print_status("FINAL")
 	print "finished execution successfully"
 
