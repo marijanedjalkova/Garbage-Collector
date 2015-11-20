@@ -34,22 +34,30 @@ class GarbageCollector:
 			start += 1
 		return start
 
+	def simple_copy_2_elements(self, index, to_index):
+		self.heap[to_index] = self.heap[index]
+		self.heap[index] = "FWD"
+		self.heap[to_index + 1] = self.heap[index + 1]
+		self.heap[index + 1] = to_index
+
 	def process_int(self, index, isPromotion):
 		# length of the block is 2
 		if not isPromotion:
 			self.moved_roots.append(self.current_moving_index)
-			self.heap[self.current_moving_index] = self.heap[index]
+			self.simple_copy_2_elements(index, self.current_moving_index)
+			"""self.heap[self.current_moving_index] = self.heap[index]
 			self.heap[index] = "FWD"
 			self.heap[self.current_moving_index + 1] = self.heap[index + 1]
-			self.heap[index + 1] = self.current_moving_index
+			self.heap[index + 1] = self.current_moving_index"""
 			self.current_moving_index += 2	
 		else:
 			new_gen_index = find_empty(2);
-			self.heap[new_gen_index] = self.heap[index]
+			self.simple_copy_2_elements(index, new_gen_index)
+			"""self.heap[new_gen_index] = self.heap[index]
 			self.heap[index] = "FWD"
 			self.heap[new_gen_index + 1] = self.heap[index + 1]
-			self.heap[index + 1] = new_gen_index
-					
+			self.heap[index + 1] = new_gen_index"""
+
 
 	def process_string(self, index, isPromotion):
 		# this is implemented as a var, i.e. the string object lies in the 
@@ -64,32 +72,36 @@ class GarbageCollector:
 				string_tuple = self.mapping_table.pop(string_code) # returns ("myVar", False)
 				self.mapping_table[string_code] = (string_tuple[0], True) # mark as checked
 				self.moved_roots.append(self.current_moving_index)
-				self.heap[self.current_moving_index] = self.heap[index]
+				self.simple_copy_2_elements(index, self.current_moving_index)
+				"""self.heap[self.current_moving_index] = self.heap[index]
 				self.heap[index] = "FWD"
 				self.heap[self.current_moving_index + 1] = self.heap[index + 1]
-				self.heap[index + 1] = self.current_moving_index
+				self.heap[index + 1] = self.current_moving_index"""
 				self.current_moving_index += 2
 		else:
 			new_gen_index = find_empty(2);
-			self.heap[new_gen_index] = self.heap[index]
+			self.simple_copy_2_elements(index, new_gen_index)
+			"""self.heap[new_gen_index] = self.heap[index]
 			self.heap[index] = "FWD"
 			self.heap[new_gen_index + 1] = self.heap[index + 1]
-			self.heap[index + 1] = new_gen_index
+			self.heap[index + 1] = new_gen_index"""
 
 	def process_bool(self, index, isPromotion):
 		if not isPromotion:
 			self.moved_roots.append(self.current_moving_index)
-			self.heap[self.current_moving_index] = self.heap[index]
+			self.simple_copy_2_elements(index, self.current_moving_index)
+			"""self.heap[self.current_moving_index] = self.heap[index]
 			self.heap[index] = "FWD"
 			self.heap[self.current_moving_index + 1] = self.heap[index + 1]
-			self.heap[index + 1] = self.current_moving_index
+			self.heap[index + 1] = self.current_moving_index"""
 			self.current_moving_index += 2
 		else:
 			new_gen_index = find_empty(2);
-			self.heap[new_gen_index] = self.heap[index]
+			self.simple_copy_2_elements(index, new_gen_index)
+			"""self.heap[new_gen_index] = self.heap[index]
 			self.heap[index] = "FWD"
 			self.heap[new_gen_index + 1] = self.heap[index + 1]
-			self.heap[index + 1] = new_gen_index
+			self.heap[index + 1] = new_gen_index"""
 
 	def process_pointer(self, pointer_index, from_index, isPromotion):
 		# pointer_index is the value that points onto the original value of the pointer
@@ -101,13 +113,36 @@ class GarbageCollector:
 		tag = self.heap[pointer_index]
 		return self.process_tag(tag, pointer_index, from_index, isPromotion)
 
+	def move_block(self, index, to_index, block_size, overhead):
+		for i in range(0, block_size):
+				self.heap[to_index + i] = self.heap[index + i]
+				if i == 0:
+					self.heap[index + i] = "FWD"
+					continue
+				if i == 1:
+					self.heap[index + i] = to_index
+					continue
+				else:
+					self.heap[index + i] = "-"
+			
+			
+		pointers = [to_index + k for k in range(overhead, block_size)]
+			
+		to_index += block_size
+		# pointers are places in heap new space where old pointers are held.
+		for p in pointers:
+			new_index = to_index
+			res = self.process_pointer(self.heap[p], p)
+			if res:
+				self.heap[p] = new_index
 
 	def process_block(self, block_size, overhead, index, isPromotion):
 		# this is for common blocks such as cons, arrays, vectors
 		# since they have a lot in common
 		if not isPromotion:
 			self.moved_roots.append(self.current_moving_index)
-			for i in range(0, block_size):
+			self.move_block(index, self.current_moving_index, block_size, overhead)
+			"""for i in range(0, block_size):
 				self.heap[self.current_moving_index + i] = self.heap[index + i]
 				if i == 0:
 					self.heap[index + i] = "FWD"
@@ -128,10 +163,11 @@ class GarbageCollector:
 				new_index = self.current_moving_index
 				res = self.process_pointer(self.heap[p], p)
 				if res:
-					self.heap[p] = new_index
+					self.heap[p] = new_index"""
 		else:
 			new_gen_index = find_empty(2)
-			for i in range(0, block_size):
+			self.move_block(index, new_gen_index, block_size, overhead)
+			"""for i in range(0, block_size):
 				self.heap[new_gen_index + i] = self.heap[index + i]
 				if i == 0:
 					self.heap[index + i] = "FWD"
@@ -152,7 +188,7 @@ class GarbageCollector:
 				new_index = new_gen_index
 				res = self.process_pointer(self.heap[p], p)
 				if res:
-					self.heap[p] = new_index
+					self.heap[p] = new_index"""
 
 
 	def process_cons(self, index, isPromotion):
@@ -176,13 +212,38 @@ class GarbageCollector:
 		overhead = 2 + n
 		self.process_block(block_size, overhead, index, isPromotion)
 			
+	def move_exception(self, index, to_index, isPromotion):
+		self.heap[to_index] = self.heap[index]
+		self.heap[index] = "FWD"
+				
+		self.heap[to_index + 1] = self.heap[index + 1]
+
+		self.heap[index + 1] = to_index # this is correct
+
+		self.heap[to_index + 2] = self.heap[index + 2]
+		self.heap[index + 2] = "-"
+
+			# this repeats part of the process_block since we cannot reuse it fully
+
+		p = to_index + range(2, 3) 
+			# 2 is the only element of the range(overhead, block_size) = range(2, 3)
+			# so there is only one p in pointers
+
+		to_index += 3
+
+		new_index = to_index
+		res = self.process_pointer(self.heap[p], p, isPromotion)
+		if res:
+				self.heap[p] = new_index
+
 
 	def process_exception(self, index, isPromotion):
 		# exception has a model of EXCEPTION e p, where e is name 
 		# and p is pointer. e has to be in the mapping table. Treat as var
+		block_size = 3
+		overhead = 2
 		if not isPromotion:
-			block_size = 3
-			overhead = 2
+			
 			exception_code = self.heap[index + 1]
 			
 			if exception_code in self.mapping_table:
@@ -192,7 +253,8 @@ class GarbageCollector:
 				
 				self.mapping_table[exception_code] = (exception_tuple[0], True) # mark as checked
 				self.moved_roots.append(self.current_moving_index)
-				self.heap[self.current_moving_index] = self.heap[index]
+				self.move_exception(index, self.current_moving_index, isPromotion)
+				"""self.heap[self.current_moving_index] = self.heap[index]
 				self.heap[index] = "FWD"
 				
 				self.heap[self.current_moving_index + 1] = self.heap[index + 1]
@@ -213,10 +275,11 @@ class GarbageCollector:
 				new_index = self.current_moving_index
 				res = self.process_pointer(self.heap[p], p)
 				if res:
-					self.heap[p] = new_index
+					self.heap[p] = new_index"""
 		else:
 			new_gen_index = find_empty(2)
-			self.heap[new_gen_index] = self.heap[index]
+			self.move_exception(index, new_gen_index, isPromotion)
+			"""self.heap[new_gen_index] = self.heap[index]
 			self.heap[index] = "FWD"
 				
 			self.heap[new_gen_index + 1] = self.heap[index + 1]
@@ -237,7 +300,7 @@ class GarbageCollector:
 			new_index = new_gen_index
 			res = self.process_pointer(self.heap[p], p, isPromotion)
 			if res:
-				self.heap[p] = new_index
+				self.heap[p] = new_index"""
 
 
 
@@ -258,17 +321,19 @@ class GarbageCollector:
 				var_tuple = self.mapping_table.pop(var_code) # returns ("myVar", False)
 				self.mapping_table[var_code] = (var_tuple[0], True) # mark as checked
 				self.moved_roots.append(self.current_moving_index)
-				self.heap[self.current_moving_index] = self.heap[index]
+				self.simple_copy_2_elements(index, self.current_moving_index)
+				"""self.heap[self.current_moving_index] = self.heap[index]
 				self.heap[index] = "FWD"
 				self.heap[self.current_moving_index + 1] = self.heap[index + 1]
-				self.heap[index + 1] = self.current_moving_index
+				self.heap[index + 1] = self.current_moving_index"""
 				self.current_moving_index += 2
 		else:
 			new_gen_index = find_empty(2);
-			self.heap[new_gen_index] = self.heap[index]
+			self.simple_copy_2_elements(index, new_gen_index)
+			"""self.heap[new_gen_index] = self.heap[index]
 			self.heap[index] = "FWD"
 			self.heap[new_gen_index + 1] = self.heap[index + 1]
-			self.heap[index + 1] = new_gen_index
+			self.heap[index + 1] = new_gen_index"""
 			
 
 	def process_fwd(self, index, from_index):
