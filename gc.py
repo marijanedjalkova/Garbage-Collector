@@ -17,16 +17,13 @@ class GarbageCollector:
 		self.FALSE = 0
 		self.NIL = -1
 		self.moved_roots = [] # this is for preserving roots when doing gc > once
-
-	"""This is legacy, not needed"""
-	def isTag(self, item):
-		return item in ["INT", "STRING", "BOOL", "CONS", "VECTOR", "ARRAY", "EXCEPTION", "IND", "VAR", "FWD"]
-
+		
 	def print_status(self, desc):
 		print "--------------"
 		print desc
 		print self.heap
 		print self.mapping_table
+		print "survivors: " + str(self.survivor_amounts)
 		print "moving " + str(self.current_moving_index)
 		print "tracing " + str(self.current_tracing_index)
 		print "________"
@@ -236,7 +233,7 @@ class GarbageCollector:
 		for root in self.roots:
 			self.process_pointer(root, root)
 			
-		self.print_status("BEFORE CLEANUP")
+		# self.print_status("BEFORE CLEANUP")
 		for i in range(0, self.TO):
 			self.heap[i] = None
 		self.swap_spaces()
@@ -277,11 +274,11 @@ class GarbageCollector:
 		self.FROM = 0
 		self.TO = 25
 		self.current_moving_index = self.TO
+		self.elements = [] # this is for counting how mahy times things survived gc
 
 
 	def initialise_roots(self):
 		self.roots = []
-
 		self.roots.append(3)
 
 		
