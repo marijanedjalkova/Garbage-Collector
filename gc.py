@@ -358,7 +358,9 @@ class GarbageCollector:
 		self.heap.extend(["EXCEPTION", 101, 3])
 		self.heap.extend(["INT", 77])
 		
-		self.heap.extend(["IND", 0])
+		self.heap.extend(["VAR", 0])
+
+		self.heap.extend(["VAR", 201])
 
 		self.heap.extend(["BOOL", False])
 		
@@ -380,7 +382,9 @@ class GarbageCollector:
 
 	def initialise_roots(self):
 		self.roots = []
-		self.roots.append(0)
+		self.roots.append(5)
+		self.roots.append(7)
+
 		
 		
 	def initialise_mapping_table(self):
