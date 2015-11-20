@@ -23,205 +23,286 @@ class GarbageCollector:
 		print desc
 		print self.heap
 		print self.mapping_table
-		print "survivors: " + str(self.survivor_amounts)
 		print "moving " + str(self.current_moving_index)
 		print "tracing " + str(self.current_tracing_index)
 		print "________"
 
+	"""finds first empty cell in specified generation"""
+	def find_empty(gen):
+		start = self.GENERATION_SIZE*gen
+		while self.heap[start] is not None:
+			start += 1
+		return start
 
-	def process_int(self, index):
+	def process_int(self, index, isPromotion):
 		# length of the block is 2
-		self.moved_roots.append(self.current_moving_index)
-		self.heap[self.current_moving_index] = self.heap[index]
-		self.heap[index] = "FWD"
-		self.heap[self.current_moving_index + 1] = self.heap[index + 1]
-		self.heap[index + 1] = self.current_moving_index
-		self.current_moving_index += 2		
+		if not isPromotion:
+			self.moved_roots.append(self.current_moving_index)
+			self.heap[self.current_moving_index] = self.heap[index]
+			self.heap[index] = "FWD"
+			self.heap[self.current_moving_index + 1] = self.heap[index + 1]
+			self.heap[index + 1] = self.current_moving_index
+			self.current_moving_index += 2	
+		else:
+			new_gen_index = find_empty(2);
+			self.heap[new_gen_index] = self.heap[index]
+			self.heap[index] = "FWD"
+			self.heap[new_gen_index + 1] = self.heap[index + 1]
+			self.heap[index + 1] = new_gen_index
+					
 
-	def process_string(self, index):
+	def process_string(self, index, isPromotion):
 		# this is implemented as a var, i.e. the string object lies in the 
 		# mapping table together with its code. 
 		# when a string is referenced, check it up in the mapping table and copy.
 		# in the mapping table, mark as checked.
 		# mention in the report that it actually clears the memory
-		string_code = self.heap[index + 1]
-		if string_code in self.mapping_table:
-			# length of the block is 2
-			string_tuple = self.mapping_table.pop(string_code) # returns ("myVar", False)
-			self.mapping_table[string_code] = (string_tuple[0], True) # mark as checked
+		if not isPromotion:
+			string_code = self.heap[index + 1]
+			if string_code in self.mapping_table:
+				# length of the block is 2
+				string_tuple = self.mapping_table.pop(string_code) # returns ("myVar", False)
+				self.mapping_table[string_code] = (string_tuple[0], True) # mark as checked
+				self.moved_roots.append(self.current_moving_index)
+				self.heap[self.current_moving_index] = self.heap[index]
+				self.heap[index] = "FWD"
+				self.heap[self.current_moving_index + 1] = self.heap[index + 1]
+				self.heap[index + 1] = self.current_moving_index
+				self.current_moving_index += 2
+		else:
+			new_gen_index = find_empty(2);
+			self.heap[new_gen_index] = self.heap[index]
+			self.heap[index] = "FWD"
+			self.heap[new_gen_index + 1] = self.heap[index + 1]
+			self.heap[index + 1] = new_gen_index
+
+	def process_bool(self, index, isPromotion):
+		if not isPromotion:
 			self.moved_roots.append(self.current_moving_index)
 			self.heap[self.current_moving_index] = self.heap[index]
 			self.heap[index] = "FWD"
 			self.heap[self.current_moving_index + 1] = self.heap[index + 1]
 			self.heap[index + 1] = self.current_moving_index
 			self.current_moving_index += 2
+		else:
+			new_gen_index = find_empty(2);
+			self.heap[new_gen_index] = self.heap[index]
+			self.heap[index] = "FWD"
+			self.heap[new_gen_index + 1] = self.heap[index + 1]
+			self.heap[index + 1] = new_gen_index
 
-	def process_bool(self, index):
-		self.moved_roots.append(self.current_moving_index)
-		self.heap[self.current_moving_index] = self.heap[index]
-		self.heap[index] = "FWD"
-		self.heap[self.current_moving_index + 1] = self.heap[index + 1]
-		self.heap[index + 1] = self.current_moving_index
-		self.current_moving_index += 2
-
-	def process_pointer(self, pointer_index, from_index):
+	def process_pointer(self, pointer_index, from_index, isPromotion):
 		# pointer_index is the value that points onto the original value of the pointer
 		# e.g. if we are processing cons 6 3 then by this time the block will have been 
 		# copied into new space, and pointer_index is either 6 or 3
 		# from_pointer gives index of a heap cell where this object was referenced
 		# e.g. if after copying there was a reference to cell 6 in cell 35, 
 		# from index is 35
-		
-		
 		tag = self.heap[pointer_index]
-		
-		
-		return self.process_tag(tag, pointer_index, from_index)
+		return self.process_tag(tag, pointer_index, from_index, isPromotion)
 
 
-	def process_block(self, block_size, overhead, index):
+	def process_block(self, block_size, overhead, index, isPromotion):
 		# this is for common blocks such as cons, arrays, vectors
 		# since they have a lot in common
-		self.moved_roots.append(self.current_moving_index)
-		for i in range(0, block_size):
-			self.heap[self.current_moving_index + i] = self.heap[index + i]
-			if i == 0:
-				self.heap[index + i] = "FWD"
-				continue
-			if i == 1:
-				self.heap[index + i] = self.current_moving_index
-				continue
-			else:
-				self.heap[index + i] = "-"
-		
-		
-		pointers = [self.current_moving_index + k for k in 
-			range(overhead, block_size)]
-		
-		self.current_moving_index += block_size
-		# pointers are places in heap new space where old pointers are held.
-		for p in pointers:
-			new_index = self.current_moving_index
-			res = self.process_pointer(self.heap[p], p)
-			if res:
-				self.heap[p] = new_index
+		if not isPromotion:
+			self.moved_roots.append(self.current_moving_index)
+			for i in range(0, block_size):
+				self.heap[self.current_moving_index + i] = self.heap[index + i]
+				if i == 0:
+					self.heap[index + i] = "FWD"
+					continue
+				if i == 1:
+					self.heap[index + i] = self.current_moving_index
+					continue
+				else:
+					self.heap[index + i] = "-"
+			
+			
+			pointers = [self.current_moving_index + k for k in 
+				range(overhead, block_size)]
+			
+			self.current_moving_index += block_size
+			# pointers are places in heap new space where old pointers are held.
+			for p in pointers:
+				new_index = self.current_moving_index
+				res = self.process_pointer(self.heap[p], p)
+				if res:
+					self.heap[p] = new_index
+		else:
+			new_gen_index = find_empty(2)
+			for i in range(0, block_size):
+				self.heap[new_gen_index + i] = self.heap[index + i]
+				if i == 0:
+					self.heap[index + i] = "FWD"
+					continue
+				if i == 1:
+					self.heap[index + i] = new_gen_index
+					continue
+				else:
+					self.heap[index + i] = "-"
+			
+			
+			pointers = [new_gen_index + k for k in 
+				range(overhead, block_size)]
+			
+			new_gen_index += block_size
+			# pointers are places in heap new space where old pointers are held.
+			for p in pointers:
+				new_index = new_gen_index
+				res = self.process_pointer(self.heap[p], p)
+				if res:
+					self.heap[p] = new_index
 
 
-	def process_cons(self, index):
+	def process_cons(self, index, isPromotion):
 		block_size = 3
 		overhead = 1 # overhead size is not pointers - tag, num of elements etc
-		self.process_block(block_size, overhead, index)
+		self.process_block(block_size, overhead, index, isPromotion)
 		
 
-	def process_vector(self, index):
+	def process_vector(self, index, isPromotion):
 		block_size = self.heap[index + 1] + 2
 		overhead = 2 # overhead size is not pointers - tag, num of elements etc
-		self.process_block(block_size, overhead, index) 
+		self.process_block(block_size, overhead, index, isPromotion) 
 
 
-	def process_array(self, index):
+	def process_array(self, index, isPromotion):
 		n = self.heap[index + 1]
 		m = 1
 		for i in range(0, n):
 			m *= self.heap[index + 2 + i]
 		block_size = 2 + n + m
 		overhead = 2 + n
-		self.process_block(block_size, overhead, index)
+		self.process_block(block_size, overhead, index, isPromotion)
 			
 
-	def process_exception(self, index):
+	def process_exception(self, index, isPromotion):
 		# exception has a model of EXCEPTION e p, where e is name 
 		# and p is pointer. e has to be in the mapping table. Treat as var
-		block_size = 3
-		overhead = 2
-		exception_code = self.heap[index + 1]
-		
-		if exception_code in self.mapping_table:
-			# length of the block is 2
+		if not isPromotion:
+			block_size = 3
+			overhead = 2
+			exception_code = self.heap[index + 1]
 			
-			exception_tuple = self.mapping_table.pop(exception_code) # returns ("myVar", False)
-			
-			self.mapping_table[exception_code] = (exception_tuple[0], True) # mark as checked
-			self.moved_roots.append(self.current_moving_index)
-			self.heap[self.current_moving_index] = self.heap[index]
+			if exception_code in self.mapping_table:
+				# length of the block is 2
+				
+				exception_tuple = self.mapping_table.pop(exception_code) # returns ("myVar", False)
+				
+				self.mapping_table[exception_code] = (exception_tuple[0], True) # mark as checked
+				self.moved_roots.append(self.current_moving_index)
+				self.heap[self.current_moving_index] = self.heap[index]
+				self.heap[index] = "FWD"
+				
+				self.heap[self.current_moving_index + 1] = self.heap[index + 1]
+
+				self.heap[index + 1] = self.current_moving_index # this is correct
+
+				self.heap[self.current_moving_index + 2] = self.heap[index + 2]
+				self.heap[index + 2] = "-"
+
+				# this repeats part of the process_block since we cannot reuse it fully
+
+				p = self.current_moving_index + range(overhead, block_size) 
+				# 2 is the only element of the range(overhead, block_size) = range(2, 3)
+				# so there is only one p in pointers
+
+				self.current_moving_index += block_size
+
+				new_index = self.current_moving_index
+				res = self.process_pointer(self.heap[p], p)
+				if res:
+					self.heap[p] = new_index
+		else:
+			new_gen_index = find_empty(2)
+			self.heap[new_gen_index] = self.heap[index]
 			self.heap[index] = "FWD"
-			
-			self.heap[self.current_moving_index + 1] = self.heap[index + 1]
+				
+			self.heap[new_gen_index + 1] = self.heap[index + 1]
 
-			self.heap[index + 1] = self.current_moving_index # this is correct
+			self.heap[index + 1] = new_gen_index # this is correct
 
-			self.heap[self.current_moving_index + 2] = self.heap[index + 2]
+			self.heap[new_gen_index + 2] = self.heap[index + 2]
 			self.heap[index + 2] = "-"
 
 			# this repeats part of the process_block since we cannot reuse it fully
 
-			p = self.current_moving_index + range(overhead, block_size) 
+			p = new_gen_index + range(overhead, block_size) 
 			# 2 is the only element of the range(overhead, block_size) = range(2, 3)
 			# so there is only one p in pointers
 
-			self.current_moving_index += block_size
+			new_gen_index += block_size
 
-			new_index = self.current_moving_index
-			res = self.process_pointer(self.heap[p], p)
+			new_index = new_gen_index
+			res = self.process_pointer(self.heap[p], p, isPromotion)
 			if res:
 				self.heap[p] = new_index
 
 
 
-	def process_ind(self, index):
+	def process_ind(self, index, isPromotion):
 		# go to heap[index + 1] 
-		self.process_pointer(self.heap[index+1], index + 1)
+		self.process_pointer(self.heap[index+1], index + 1, isPromotion)
 
-	def process_var(self, index):
+	def process_var(self, index, isPromotion):
 		# look it up in the mapping table
 		# if it is not there, don't do anything? or just copy
 		# if it is there, copy
 		# remove unused things from the mapping table
 		# explain in report that only roots are considered
-		var_code = self.heap[index + 1]
-		if var_code in self.mapping_table:
-			# length of the block is 2
-			var_tuple = self.mapping_table.pop(var_code) # returns ("myVar", False)
-			self.mapping_table[var_code] = (var_tuple[0], True) # mark as checked
-			self.moved_roots.append(self.current_moving_index)
-			self.heap[self.current_moving_index] = self.heap[index]
+		if not isPromotion:
+			var_code = self.heap[index + 1]
+			if var_code in self.mapping_table:
+				# length of the block is 2
+				var_tuple = self.mapping_table.pop(var_code) # returns ("myVar", False)
+				self.mapping_table[var_code] = (var_tuple[0], True) # mark as checked
+				self.moved_roots.append(self.current_moving_index)
+				self.heap[self.current_moving_index] = self.heap[index]
+				self.heap[index] = "FWD"
+				self.heap[self.current_moving_index + 1] = self.heap[index + 1]
+				self.heap[index + 1] = self.current_moving_index
+				self.current_moving_index += 2
+		else:
+			new_gen_index = find_empty(2);
+			self.heap[new_gen_index] = self.heap[index]
 			self.heap[index] = "FWD"
-			self.heap[self.current_moving_index + 1] = self.heap[index + 1]
-			self.heap[index + 1] = self.current_moving_index
-			self.current_moving_index += 2
-
+			self.heap[new_gen_index + 1] = self.heap[index + 1]
+			self.heap[index + 1] = new_gen_index
+			
 
 	def process_fwd(self, index, from_index):
 		self.heap[from_index] = self.heap[index + 1]
 		
 
-	def process_tag(self, tag, heap_root_index, from_index):
+
+	def process_tag(self, tag, heap_root_index, from_index, isPromotion):
 		if tag == self.INT or tag == "INT":
-			self.process_int(heap_root_index)
+			self.process_int(heap_root_index, isPromotion)
 			return True
 		if tag == self.STRING or tag == "STRING":
-			self.process_string(heap_root_index)
+			self.process_string(heap_root_index, isPromotion)
 			return True
 		if tag == self.BOOL or tag == "BOOL":
-			self.process_bool(heap_root_index)
+			self.process_bool(heap_root_index, isPromotion)
 			return True
 		if tag == self.CONS or tag == "CONS":
-			self.process_cons(heap_root_index)
+			self.process_cons(heap_root_index, isPromotion)
 			return True
 		if tag == self.VECTOR or tag == "VECTOR":
-			self.process_vector(heap_root_index)
+			self.process_vector(heap_root_index, isPromotion)
 			return True
 		if tag == self.ARRAY or tag == "ARRAY":
-			self.process_array(heap_root_index)
+			self.process_array(heap_root_index, isPromotion)
 			return True
 		if tag == self.EXCEPTION or tag == "EXCEPTION":
-			self.process_exception(heap_root_index)
+			self.process_exception(heap_root_index, isPromotion)
 			return True
 		if tag == self.IND or tag == "IND":
-			self.process_ind(heap_root_index)
+			self.process_ind(heap_root_index, isPromotion)
 			return True
 		if tag == self.VAR or tag == "VAR":
-			self.process_var(heap_root_index)
+			self.process_var(heap_root_index, isPromotion)
 			return True
 		if tag == "FWD":
 			self.process_fwd(heap_root_index, from_index)
@@ -231,7 +312,7 @@ class GarbageCollector:
 
 	def collect_garbage(self):
 		for root in self.roots:
-			self.process_pointer(root, root)
+			self.process_pointer(root, root, False)
 			
 		# self.print_status("BEFORE CLEANUP")
 		for i in range(0, self.TO):
