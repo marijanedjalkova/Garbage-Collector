@@ -187,6 +187,8 @@ class GarbageCollector:
 		# from_pointer gives index of a heap cell where this object was referenced
 		# e.g. if after copying there was a reference to cell 6 in cell 35, 
 		# from index is 35
+		print "p is " + str(from_index)
+		print "heap at p is " + str(pointer_index)
 		
 		tag = self.heap[pointer_index]
 		
@@ -245,12 +247,40 @@ class GarbageCollector:
 	def process_exception(self, index):
 		# exception has a model of EXCEPTION e p, where e is name 
 		# and p is pointer. e has to be in the mapping table. Treat as var
+		block_size = 3
+		overhead = 2
 		exception_code = self.heap[index + 1]
+		
 		if exception_code in self.mapping_table:
 			# length of the block is 2
+			
 			exception_tuple = self.mapping_table.pop(exception_code) # returns ("myVar", False)
+			
 			self.mapping_table[exception_code] = (exception_tuple[0], True) # mark as checked
-			self.process_block(3, 1, index)
+			
+			self.heap[self.current_moving_index] = self.heap[index]
+			self.heap[index] = "FWD"
+			
+			self.heap[self.current_moving_index + 1] = self.heap[index + 1]
+
+			self.heap[index + 1] = self.current_moving_index # this is correct
+
+			self.heap[self.current_moving_index + 2] = self.heap[index + 2]
+			self.heap[index + 2] = "-"
+
+			# this repeats part of the process_block since we cannot reuse it fully
+
+			p = self.current_moving_index + range(overhead, block_size) 
+			# 2 is the only element of the range(overhead, block_size) = range(2, 3)
+			# so there is only one p in pointers
+
+			self.current_moving_index += block_size
+
+			new_index = self.current_moving_index
+			res = self.process_pointer(self.heap[p], p)
+			if res:
+				self.heap[p] = new_index
+
 
 
 	def process_ind(self, index):
@@ -325,6 +355,7 @@ class GarbageCollector:
 	def initialise_heap(self):
 		
 		self.heap = []
+		self.heap.extend(["EXCEPTION", 101, 3])
 		self.heap.extend(["INT", 77])
 		
 		self.heap.extend(["IND", 0])
@@ -337,7 +368,7 @@ class GarbageCollector:
 
 		self.heap.extend(["ARRAY", 2, 3, 2, 0, 6, 4, 0, 6, 4])
 		
-		self.heap.extend(["CONS", 6, 6])
+		self.heap.extend(["CONS", 3, 7])
 		
 		self.current_tracing_index = 0
 		self.current_moving_index = len(self.heap)
@@ -349,8 +380,8 @@ class GarbageCollector:
 
 	def initialise_roots(self):
 		self.roots = []
-		self.roots.append(13)
-		self.roots.append(23)
+		self.roots.append(0)
+		
 		
 	def initialise_mapping_table(self):
 		self.mapping_table = {}
@@ -358,12 +389,16 @@ class GarbageCollector:
 		self.mapping_table[201] = ("this wonderful string", False)
 
 	def clean_mapping_table(self):
-		for code, mapping_tuple in self.mapping_table:
+		to_remove = []
+		for code in self.mapping_table:
+			mapping_tuple = self.mapping_table[code]
 			if mapping_tuple[1]==False:
-				self.mapping_table.pop(code)
+				to_remove.append(code)
 			else:
 				self.mapping_table.pop(code)
 				self.mapping_table[code] = (mapping_tuple[0], False)
+		for code in to_remove:
+			self.mapping_table.pop(code)
 
 
 def main():
