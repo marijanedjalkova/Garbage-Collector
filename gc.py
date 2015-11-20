@@ -360,7 +360,7 @@ class GarbageCollector:
 		
 		self.heap.extend(["VAR", 0])
 
-		self.heap.extend(["VAR", 201])
+		self.heap.extend(["STRING", 201])
 
 		self.heap.extend(["BOOL", False])
 		
@@ -382,7 +382,7 @@ class GarbageCollector:
 
 	def initialise_roots(self):
 		self.roots = []
-		self.roots.append(5)
+
 		self.roots.append(7)
 
 		
