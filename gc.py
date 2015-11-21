@@ -93,7 +93,6 @@ class GarbageCollector:
 	def process_bool(self, index, to_index, isPromotion):
 		if not isPromotion:
 			
-			# to_index = self.current_moving_index # wrong, fix
 			self.moved_roots.append(to_index)
 			new_index = self.simple_copy_2_elements(index, to_index)
 			"""self.heap[self.current_moving_index] = self.heap[index]
@@ -167,8 +166,8 @@ class GarbageCollector:
 		# this is for common blocks such as cons, arrays, vectors
 		# since they have a lot in common
 		if not isPromotion:
-			self.moved_roots.append(self.current_moving_index)
-			self.current_moving_index = self.move_block(index, self.current_moving_index, block_size, overhead, isPromotion)
+			self.moved_roots.append(to_index)
+			self.current_moving_index = self.move_block(index, to_index, block_size, overhead, isPromotion)
 			print "NEW MOVING INDEX IS " + str(self.current_moving_index)
 			"""for i in range(0, block_size):
 				self.heap[self.current_moving_index + i] = self.heap[index + i]
@@ -240,7 +239,7 @@ class GarbageCollector:
 			m *= self.heap[index + 2 + i]
 		block_size = 2 + n + m
 		overhead = 2 + n
-		self.process_block(block_size, overhead, index, isPromotion)
+		self.process_block(block_size, overhead, index, to_index, isPromotion)
 			
 	def move_exception(self, index, to_index, isPromotion):
 		self.heap[to_index] = self.heap[index]
