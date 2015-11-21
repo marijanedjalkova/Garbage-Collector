@@ -93,7 +93,7 @@ class GarbageCollector:
 	def process_bool(self, index, to_index, isPromotion):
 		if not isPromotion:
 			
-			to_index = self.current_moving_index # wrong, fix
+			# to_index = self.current_moving_index # wrong, fix
 			self.moved_roots.append(to_index)
 			new_index = self.simple_copy_2_elements(index, to_index)
 			"""self.heap[self.current_moving_index] = self.heap[index]
