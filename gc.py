@@ -1,7 +1,7 @@
 class GarbageCollector:
 	def __init__(self):
 		self.heap = []
-		self.GENERATION_SIZE = 100
+		self.GENERATION_SIZE = 30
 		self.current_moving_index = 0 # this marks where to put the next thing
 		self.current_tracing_index = 0 # this shows where we are in the old section
 		self.INT = 11
@@ -22,9 +22,6 @@ class GarbageCollector:
 		print "--------------"
 		print desc
 		print self.heap
-		print self.mapping_table
-		print "moving " + str(self.current_moving_index)
-		print "tracing " + str(self.current_tracing_index)
 		print "________"
 
 	"""finds first empty cell in specified generation"""
@@ -67,6 +64,8 @@ class GarbageCollector:
 				self.mapping_table[string_code] = (string_tuple[0], True) # mark as checked
 				self.moved_roots.append(to_index)
 				new_index = self.simple_copy_2_elements(index, to_index)
+			else:
+				return to_index
 		else:
 			new_gen_index = find_empty(2);
 			new_index = self.simple_copy_2_elements(index, new_gen_index)
@@ -91,14 +90,11 @@ class GarbageCollector:
 		# from index is 35
 		#print "pointer index is " + str(pointer_index)
 		tag = self.heap[pointer_index]
-		print "tag is " + str(tag)
-		print "pointer index is " + str(pointer_index)
-		print "from_index is " + str(from_index)
-		print "to index is " + str(to_index)
+		
 		return self.process_tag(tag, pointer_index, from_index, to_index, isPromotion)
 
 	def move_block(self, index, to_index, block_size, overhead, isPromotion):
-		print "moving block of sieze" + str(block_size) + " from index " + str(index) + " to " + str(to_index)
+		# print "moving block of sieze" + str(block_size) + " from index " + str(index) + " to " + str(to_index)
 		for i in range(0, block_size):
 			print "will be writing this: " + str(self.heap[index + i]) + "  here: " + str(to_index + i)
 			self.heap[to_index + i] = self.heap[index + i]
@@ -111,27 +107,26 @@ class GarbageCollector:
 			else:
 				self.heap[index + i] = "-"
 			
-		self.print_status("just copied")	
+		# self.print_status("just copied")	
 		pointers = [to_index + k for k in range(overhead, block_size)]
 		
 		to_index += block_size
 		# pointers are places in heap new space where old pointers are held.
 		for p in pointers:
-			#print "pointer p: " + str(p)
+			print "pointer p: " + str(p)
 			new_index = to_index
-			self.current_moving_index = to_index
+			
 			#print "new index is " + str(new_index) +  " give to pp " + str(self.heap[p]) + " and " + str(p)
-			result = self.process_pointer(self.heap[p], p, new_index, isPromotion)
-			print "returned " + str(result)
+			result = self.process_pointer(self.heap[p], p, to_index, isPromotion)
+			# print "returned " + str(result)
 			res = result[1]
 			to_index = result[0]
-			self.current_moving_index = result[0]
-			#print "===just after, cmi is " + str(self.current_moving_index)
+			
 			# self.print_status("after pp")
 			if res:
 				#print "refer to new position " + str(new_index) + " into " + str(p)
 				self.heap[p] = new_index
-			self.print_status("after moving blockling " + str(p))
+			# self.print_status("after moving blockling " + str(p))
 		print "returning index " + str(new_index)
 		return new_index
 
@@ -140,10 +135,8 @@ class GarbageCollector:
 		# since they have a lot in common
 		if not isPromotion:
 			self.moved_roots.append(to_index)
-			print "BOCK SIZE " + str(block_size)
+			
 			new_index = self.move_block(index, to_index, block_size, overhead, isPromotion)
-			self.current_moving_index = new_index
-			print "NEW MOVING INDEX IS " + str(self.current_moving_index)
 		else:
 			new_gen_index = find_empty(2)
 			new_index = self.move_block(index, new_gen_index, block_size, overhead, isPromotion)
@@ -170,13 +163,13 @@ class GarbageCollector:
 			m *= self.heap[index + 2 + i]
 		block_size = 2 + n + m
 		overhead = 2 + n
-		print "block size is " + str(block_size)
+		
 		return self.process_block(block_size, overhead, index, to_index, isPromotion)
 			
 	def move_exception(self, index, to_index, isPromotion):
 		self.heap[to_index] = self.heap[index]
 		self.heap[index] = "FWD"
-				
+		
 		self.heap[to_index + 1] = self.heap[index + 1]
 
 		self.heap[index + 1] = to_index # this is correct
@@ -221,6 +214,8 @@ class GarbageCollector:
 				self.mapping_table[exception_code] = (exception_tuple[0], True) # mark as checked
 				self.moved_roots.append(to_index)
 				new_index = self.move_exception(index, to_index, isPromotion)
+			else:
+				return to_index
 
 		else:
 			new_gen_index = find_empty(2)
@@ -248,18 +243,19 @@ class GarbageCollector:
 				self.mapping_table[var_code] = (var_tuple[0], True) # mark as checked
 				self.moved_roots.append(to_index)
 				new_index = self.simple_copy_2_elements(index, to_index)
+			else:
+				return to_index
 				
-				self.current_moving_index = new_index
 		else:
 			new_gen_index = find_empty(2);
 			new_index = self.simple_copy_2_elements(index, to_index, new_gen_index)
 		return new_index
 			
 
-	def process_fwd(self, index, from_index):
-		self.heap[from_index] = self.heap[index + 1]
-		
-
+	def process_fwd(self, index, from_index, to_index, isPromotion):
+		if index != from_index:
+			self.heap[from_index] = self.heap[index + 1]
+			
 
 	def process_tag(self, tag, heap_root_index, from_index, to_index, isPromotion):
 		if tag == self.INT or tag == "INT":
@@ -290,18 +286,22 @@ class GarbageCollector:
 			new_index = self.process_var(heap_root_index, to_index, isPromotion)
 			return (new_index, True)
 		if tag == "FWD":
-			self.process_fwd(heap_root_index, from_index)
+			self.process_fwd(heap_root_index, from_index, to_index, isPromotion)
 			return (to_index, False)
-		print "Error tag"
+		print "Error tag : " + str(tag)
 
 
 	def collect_garbage(self):
+		self.print_status("INITIAL")
 		for root in self.roots:
-
 			self.process_pointer(root, root, self.current_moving_index, False)
 			
 		self.print_status("BEFORE CLEANUP")
-		for i in range(0, self.TO):
+
+		cleaning_start = self.FROM	
+		cleaning_end = cleaning_start + self.GENERATION_SIZE
+
+		for i in range(cleaning_start, cleaning_end):
 			self.heap[i] = None
 		self.swap_spaces()
 		self.roots = self.moved_roots
@@ -330,7 +330,7 @@ class GarbageCollector:
 		
 		self.heap.extend(["INT", 23])
 
-		#.heap.extend(["VECTOR", 3, 9, 11, 3])
+		#self.heap.extend(["VECTOR", 3, 9, 11, 3])
 
 		
 		
@@ -339,7 +339,7 @@ class GarbageCollector:
 			self.heap.append(None)
 		
 		self.FROM = 0
-		self.TO = 25
+		self.TO = self.FROM + self.GENERATION_SIZE
 		self.current_moving_index = self.TO
 		self.elements = [] # this is for counting how mahy times things survived gc
 
@@ -369,22 +369,24 @@ class GarbageCollector:
 
 
 def main():
+	print "================================================================================="
 	gc = GarbageCollector()
 	gc.initialise_heap()
 	gc.initialise_roots()
 	gc.initialise_mapping_table()
 	# at this point we have something that has to be garbage collected in the heap
 	# and also the current index shows the first empty cell after all the code
-	gc.print_status("INITIAL")
+	
 	gc.collect_garbage()
 
 	gc.print_status("FINAL1")
-	"""gc.collect_garbage()
-	
-	gc.print_status("FINAL2")
 	gc.collect_garbage()
 	
-	gc.print_status("FINAL3")"""
+	gc.print_status("FINAL2")
+
+	gc.collect_garbage()
+	
+	gc.print_status("FINAL3")
 	print "finished execution successfully"
 
 
