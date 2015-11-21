@@ -228,18 +228,21 @@ class GarbageCollector:
 		# if it is there, copy
 		# remove unused things from the mapping table
 		# explain in report that only roots are considered
+		
 		if not isPromotion:
 			var_code = self.heap[index + 1]
+			
 			if var_code in self.mapping_table:
 				# length of the block is 2
 				var_tuple = self.mapping_table.pop(var_code) # returns ("myVar", False)
 				self.mapping_table[var_code] = (var_tuple[0], True) # mark as checked
-				self.moved_roots.append(self.current_moving_index)
-				self.simple_copy_2_elements(index, self.current_moving_index)
-				self.current_moving_index += 2
+				self.moved_roots.append(to_index)
+				new_index = self.simple_copy_2_elements(index, to_index)
+				
+				self.current_moving_index = new_index
 		else:
 			new_gen_index = find_empty(2);
-			self.simple_copy_2_elements(index, new_gen_index)
+			self.simple_copy_2_elements(index, to_index, new_gen_index)
 			
 
 	def process_fwd(self, index, from_index):
@@ -286,7 +289,7 @@ class GarbageCollector:
 
 			self.process_pointer(root, root, self.current_moving_index, False)
 			
-		# self.print_status("BEFORE CLEANUP")
+		self.print_status("BEFORE CLEANUP")
 		for i in range(0, self.TO):
 			self.heap[i] = None
 		self.swap_spaces()
@@ -308,7 +311,7 @@ class GarbageCollector:
 		self.heap.extend(["EXCEPTION", 101, 3])
 		self.heap.extend(["INT", 77])
 		
-		self.heap.extend(["VAR", 0])
+		self.heap.extend(["VAR", 101])
 
 		self.heap.extend(["STRING", 201])
 
@@ -332,7 +335,7 @@ class GarbageCollector:
 
 	def initialise_roots(self):
 		self.roots = []
-		self.roots.append(13)
+		self.roots.append(5)
 
 		
 		
