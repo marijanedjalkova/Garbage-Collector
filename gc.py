@@ -98,9 +98,9 @@ class GarbageCollector:
 		return self.process_tag(tag, pointer_index, from_index, to_index, isPromotion)
 
 	def move_block(self, index, to_index, block_size, overhead, isPromotion):
-		print "moving block  from index " + str(index) + " to " + str(to_index)
+		print "moving block of sieze" + str(block_size) + " from index " + str(index) + " to " + str(to_index)
 		for i in range(0, block_size):
-			#print "will be writing this: " + str(self.heap[index + i]) + "  here: " + str(to_index + i)
+			print "will be writing this: " + str(self.heap[index + i]) + "  here: " + str(to_index + i)
 			self.heap[to_index + i] = self.heap[index + i]
 			if i == 0:
 				self.heap[index + i] = "FWD"
@@ -140,24 +140,26 @@ class GarbageCollector:
 		# since they have a lot in common
 		if not isPromotion:
 			self.moved_roots.append(to_index)
-			self.current_moving_index = self.move_block(index, to_index, block_size, overhead, isPromotion)
+			print "BOCK SIZE " + str(block_size)
+			new_index = self.move_block(index, to_index, block_size, overhead, isPromotion)
+			self.current_moving_index = new_index
 			print "NEW MOVING INDEX IS " + str(self.current_moving_index)
 		else:
 			new_gen_index = find_empty(2)
-			self.move_block(index, new_gen_index, block_size, overhead, isPromotion)
-
+			new_index = self.move_block(index, new_gen_index, block_size, overhead, isPromotion)
+		return new_index
 
 	def process_cons(self, index, to_index, isPromotion):
 		block_size = 3
 		overhead = 1 # overhead size is not pointers - tag, num of elements etc
-		self.process_block(block_size, overhead, index, isPromotion)
+		return self.process_block(block_size, overhead, index, isPromotion)
 		
 
 	def process_vector(self, index, to_index, isPromotion):
 		print "processing vector from index " + str(index) + " to index " + str(to_index)
 		block_size = self.heap[index + 1] + 2
 		overhead = 2 # overhead size is not pointers - tag, num of elements etc
-		self.process_block(block_size, overhead, index, to_index, isPromotion) 
+		return self.process_block(block_size, overhead, index, to_index, isPromotion) 
 		
 
 
@@ -168,7 +170,8 @@ class GarbageCollector:
 			m *= self.heap[index + 2 + i]
 		block_size = 2 + n + m
 		overhead = 2 + n
-		self.process_block(block_size, overhead, index, to_index, isPromotion)
+		print "block size is " + str(block_size)
+		return self.process_block(block_size, overhead, index, to_index, isPromotion)
 			
 	def move_exception(self, index, to_index, isPromotion):
 		self.heap[to_index] = self.heap[index]
@@ -183,16 +186,22 @@ class GarbageCollector:
 
 			# this repeats part of the process_block since we cannot reuse it fully
 
-		p = to_index + range(2, 3) 
+		p = to_index + 2 
 			# 2 is the only element of the range(overhead, block_size) = range(2, 3)
 			# so there is only one p in pointers
 
 		to_index += 3
 
 		new_index = to_index
-		res = self.process_pointer(self.heap[p], p, isPromotion)[1]
+		
+		result = self.process_pointer(self.heap[p], p, new_index, isPromotion)
+		res = result[1]
+		to_index = result[0]
+		self.current_moving_index = to_index
+
 		if res:
 				self.heap[p] = new_index
+		return new_index
 
 
 	def process_exception(self, index, to_index, isPromotion):
@@ -210,17 +219,18 @@ class GarbageCollector:
 				exception_tuple = self.mapping_table.pop(exception_code) # returns ("myVar", False)
 				
 				self.mapping_table[exception_code] = (exception_tuple[0], True) # mark as checked
-				self.moved_roots.append(self.current_moving_index)
-				self.move_exception(index, self.current_moving_index, isPromotion)
+				self.moved_roots.append(to_index)
+				new_index = self.move_exception(index, to_index, isPromotion)
 
 		else:
 			new_gen_index = find_empty(2)
-			self.move_exception(index, new_gen_index, isPromotion)
+			new_index = self.move_exception(index, new_gen_index, isPromotion)
+		return new_index
 
 
 	def process_ind(self, index, to_index, isPromotion):
 		# go to heap[index + 1] 
-		self.process_pointer(self.heap[index+1], index + 1, to_index, isPromotion)
+		return self.process_pointer(self.heap[index+1], index + 1, to_index, isPromotion)
 
 	def process_var(self, index, to_index, isPromotion):
 		# look it up in the mapping table
@@ -242,7 +252,8 @@ class GarbageCollector:
 				self.current_moving_index = new_index
 		else:
 			new_gen_index = find_empty(2);
-			self.simple_copy_2_elements(index, to_index, new_gen_index)
+			new_index = self.simple_copy_2_elements(index, to_index, new_gen_index)
+		return new_index
 			
 
 	def process_fwd(self, index, from_index):
@@ -280,7 +291,7 @@ class GarbageCollector:
 			return (new_index, True)
 		if tag == "FWD":
 			self.process_fwd(heap_root_index, from_index)
-			return False
+			return (to_index, False)
 		print "Error tag"
 
 
@@ -310,7 +321,7 @@ class GarbageCollector:
 		self.heap = []
 		self.heap.extend(["EXCEPTION", 101, 3])
 		self.heap.extend(["INT", 77])
-		
+		self.heap.extend(["ARRAY", 2, 3, 2, 0, 5, 3, 0, 5, 3])
 		self.heap.extend(["VAR", 101])
 
 		self.heap.extend(["STRING", 201])
@@ -319,9 +330,9 @@ class GarbageCollector:
 		
 		self.heap.extend(["INT", 23])
 
-		self.heap.extend(["VECTOR", 3, 9, 11, 3])
+		#.heap.extend(["VECTOR", 3, 9, 11, 3])
 
-		#self.heap.extend(["ARRAY", 2, 3, 2, 0, 6, 4, 0, 6, 4])
+		
 		
 		self.heap.extend(["CONS", 3, 7])
 		for i in range(0, 50):
