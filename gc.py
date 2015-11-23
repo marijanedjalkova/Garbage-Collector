@@ -315,11 +315,13 @@ class GarbageCollector:
 		# check what is in the fifth element of the promotion list
 		# promote
 		# delete from list
+		self.print_status("BEFORE PROMOTION")
 		to_promote = self.promotion_list[len(self.promotion_list)-1]
 		for element in to_promote:
 			if not element in to_promote:
-				self.process_pointer(element, element, 60, True)
+				self.process_pointer(element, element, self.GENERATION_SIZE, True)
 		self.promotion_list[len(self.promotion_list)-1] = []
+		self.print_status("AFTER PROMOTION")
 
 
 	def collect_garbage(self):
@@ -369,7 +371,7 @@ class GarbageCollector:
 		
 		
 		self.heap.extend(["CONS", 3, 7])
-		for i in range(0, 50):
+		for i in range(0, 70):
 			self.heap.append(None)
 		
 		self.FROM = 0
@@ -421,6 +423,13 @@ def main():
 	gc.collect_garbage()
 	
 	gc.print_status("FINAL3")
+	gc.collect_garbage()
+	
+	gc.print_status("FINAL4")
+
+	gc.collect_garbage()
+	
+	gc.print_status("FINAL5")
 	print "finished execution successfully"
 
 
