@@ -1,7 +1,8 @@
 class GarbageCollector:
 	def __init__(self):
 		self.heap = []
-		self.GENERATION_SIZE = 30
+		self.SPACE_SIZE = 30
+		self.GENERATION_SIZE = self.SPACE_SIZE * 2
 		self.current_moving_index = 0 # this marks where to put the next thing
 		self.current_tracing_index = 0 # this shows where we are in the old section
 		self.INT = 11
@@ -17,6 +18,7 @@ class GarbageCollector:
 		self.FALSE = 0
 		self.NIL = -1
 		self.moved_roots = [] # this is for preserving roots when doing gc > once
+		self.promotion_list = [[], [], [], [], []] 
 		
 	def print_status(self, desc):
 		print "--------------"
@@ -255,9 +257,29 @@ class GarbageCollector:
 	def process_fwd(self, index, from_index, to_index, isPromotion):
 		if index != from_index:
 			self.heap[from_index] = self.heap[index + 1]
+
+	def get_promotion_index(self, index):
+		# deletes the element from old list, too
+		for part in self.promotion_list:
+			for number in part:
+				if number==index:
+					number_index = part.index(number)
+					list_number = self.promotion_list.index(part)
+					print str(number_index) + " and " + str(list_number)
+					del self.promotion_list[list_number][number_index]
+					return number_index
+		return -1
+
+	def update_collection_times(self, heap_root_index, to_index):
+		old_promotion_index = self.get_promotion_index(heap_root_index)
+		self.promotion_list[old_promotion_index + 1].append(to_index)
 			
 
 	def process_tag(self, tag, heap_root_index, from_index, to_index, isPromotion):
+
+		self.update_collection_times(heap_root_index, to_index)
+
+
 		if tag == self.INT or tag == "INT":
 			new_index = self.process_int(heap_root_index, to_index, isPromotion)
 			return (new_index, True)
@@ -290,19 +312,32 @@ class GarbageCollector:
 			return (to_index, False)
 		print "Error tag : " + str(tag)
 
+	def promote(self):
+		# check what is in the fifth element of the promotion list
+		# promote
+		# delete from list
+		to_promote = self.promotion_list[len(self.promotion_list)-1]
+		for element in to_promote:
+			if not element in to_promote:
+				self.process_pointer(element, element, 60, True)
+		self.promotion_list[len(self.promotion_list)-1] = []
+
 
 	def collect_garbage(self):
 		self.print_status("INITIAL")
+		print self.promotion_list
 		for root in self.roots:
 			self.process_pointer(root, root, self.current_moving_index, False)
 			
 		self.print_status("BEFORE CLEANUP")
-
+		print self.promotion_list
 		cleaning_start = self.FROM	
-		cleaning_end = cleaning_start + self.GENERATION_SIZE
+		cleaning_end = cleaning_start + self.SPACE_SIZE
 
 		for i in range(cleaning_start, cleaning_end):
 			self.heap[i] = None
+
+		#self.promote()
 		self.swap_spaces()
 		self.roots = self.moved_roots
 		self.moved_roots = []
@@ -339,7 +374,7 @@ class GarbageCollector:
 			self.heap.append(None)
 		
 		self.FROM = 0
-		self.TO = self.FROM + self.GENERATION_SIZE
+		self.TO = self.FROM + self.SPACE_SIZE
 		self.current_moving_index = self.TO
 		self.elements = [] # this is for counting how mahy times things survived gc
 
@@ -369,7 +404,7 @@ class GarbageCollector:
 
 
 def main():
-	print "================================================================================="
+	# print "================================================================================="
 	gc = GarbageCollector()
 	gc.initialise_heap()
 	gc.initialise_roots()
