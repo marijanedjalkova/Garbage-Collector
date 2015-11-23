@@ -28,8 +28,8 @@ class GarbageCollector:
 		print "________"
 
 	"""finds first empty cell in specified generation"""
-	def find_empty(gen):
-		start = self.GENERATION_SIZE*gen
+	def find_empty(self, gen):
+		start = self.GENERATION_SIZE*(gen - 1)
 		while self.heap[start] is not None:
 			start += 1
 		return start
@@ -48,7 +48,7 @@ class GarbageCollector:
 			self.moved_roots.append(to_index)
 			new_index = self.simple_copy_2_elements(index, to_index)
 		else:
-			new_gen_index = find_empty(2);
+			new_gen_index = self.find_empty(2);
 			new_index = self.simple_copy_2_elements(index, new_gen_index)
 		return new_index
 
@@ -70,7 +70,7 @@ class GarbageCollector:
 			else:
 				return to_index
 		else:
-			new_gen_index = find_empty(2);
+			new_gen_index = self.find_empty(2);
 			new_index = self.simple_copy_2_elements(index, new_gen_index)
 		return new_index
 
@@ -80,7 +80,7 @@ class GarbageCollector:
 			self.moved_roots.append(to_index)
 			new_index = self.simple_copy_2_elements(index, to_index)
 		else:
-			new_gen_index = find_empty(2);
+			new_gen_index = self.find_empty(2);
 			new_index = self.simple_copy_2_elements(index, new_gen_index)
 		return new_index
 
@@ -93,7 +93,8 @@ class GarbageCollector:
 		# from index is 35
 		#print "pointer index is " + str(pointer_index)
 		tag = self.heap[pointer_index]
-		
+		if isPromotion:
+			print "tag " + str(tag)
 		return self.process_tag(tag, pointer_index, from_index, to_index, isPromotion)
 
 	def move_block(self, index, to_index, block_size, overhead, isPromotion):
@@ -141,7 +142,7 @@ class GarbageCollector:
 			
 			new_index = self.move_block(index, to_index, block_size, overhead, isPromotion)
 		else:
-			new_gen_index = find_empty(2)
+			new_gen_index = self.find_empty(2)
 			new_index = self.move_block(index, new_gen_index, block_size, overhead, isPromotion)
 		return new_index
 
@@ -221,7 +222,7 @@ class GarbageCollector:
 				return to_index
 
 		else:
-			new_gen_index = find_empty(2)
+			new_gen_index = self.find_empty(2)
 			new_index = self.move_exception(index, new_gen_index, isPromotion)
 		return new_index
 
@@ -250,7 +251,7 @@ class GarbageCollector:
 				return to_index
 				
 		else:
-			new_gen_index = find_empty(2);
+			new_gen_index = self.find_empty(2);
 			new_index = self.simple_copy_2_elements(index, to_index, new_gen_index)
 		return new_index
 			
@@ -276,7 +277,7 @@ class GarbageCollector:
 			
 
 	def process_tag(self, tag, heap_root_index, from_index, to_index, isPromotion):
-		if tag != "FWD":
+		if tag != "FWD" and not isPromotion:
 			self.update_collection_times(heap_root_index, to_index)
 
 		if tag == self.INT or tag == "INT":
@@ -315,13 +316,14 @@ class GarbageCollector:
 		# check what is in the fifth element of the promotion list
 		# promote
 		# delete from list
-		self.print_status("BEFORE PROMOTION")
+
 		to_promote = self.promotion_list[len(self.promotion_list)-1]
+		print " TO PROMOTE"
+		print to_promote
 		for element in to_promote:
-			if not element in to_promote:
-				self.process_pointer(element, element, self.GENERATION_SIZE, True)
+			self.process_pointer(element, element, self.GENERATION_SIZE, True)
 		self.promotion_list[len(self.promotion_list)-1] = []
-		self.print_status("AFTER PROMOTION")
+		
 
 
 	def collect_garbage(self):
@@ -338,7 +340,7 @@ class GarbageCollector:
 		for i in range(cleaning_start, cleaning_end):
 			self.heap[i] = None
 
-		#self.promote()
+		self.promote()
 		self.swap_spaces()
 		self.roots = self.moved_roots
 		self.moved_roots = []
@@ -371,7 +373,7 @@ class GarbageCollector:
 		
 		
 		self.heap.extend(["CONS", 3, 7])
-		for i in range(0, 70):
+		for i in range(0, 80):
 			self.heap.append(None)
 		
 		self.FROM = 0
@@ -414,22 +416,20 @@ def main():
 	# and also the current index shows the first empty cell after all the code
 	
 	gc.collect_garbage()
-
 	gc.print_status("FINAL1")
+
 	gc.collect_garbage()
-	
 	gc.print_status("FINAL2")
 
 	gc.collect_garbage()
-	
 	gc.print_status("FINAL3")
+
 	gc.collect_garbage()
-	
 	gc.print_status("FINAL4")
 
 	gc.collect_garbage()
-	
 	gc.print_status("FINAL5")
+
 	print "finished execution successfully"
 
 
