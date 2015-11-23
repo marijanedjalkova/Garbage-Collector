@@ -24,6 +24,7 @@ class GarbageCollector:
 		print "--------------"
 		print desc
 		print self.heap
+		print self.promotion_list
 		print "________"
 
 	"""finds first empty cell in specified generation"""
@@ -98,7 +99,7 @@ class GarbageCollector:
 	def move_block(self, index, to_index, block_size, overhead, isPromotion):
 		# print "moving block of sieze" + str(block_size) + " from index " + str(index) + " to " + str(to_index)
 		for i in range(0, block_size):
-			print "will be writing this: " + str(self.heap[index + i]) + "  here: " + str(to_index + i)
+			# print "will be writing this: " + str(self.heap[index + i]) + "  here: " + str(to_index + i)
 			self.heap[to_index + i] = self.heap[index + i]
 			if i == 0:
 				self.heap[index + i] = "FWD"
@@ -115,7 +116,7 @@ class GarbageCollector:
 		to_index += block_size
 		# pointers are places in heap new space where old pointers are held.
 		for p in pointers:
-			print "pointer p: " + str(p)
+			# print "pointer p: " + str(p)
 			new_index = to_index
 			
 			#print "new index is " + str(new_index) +  " give to pp " + str(self.heap[p]) + " and " + str(p)
@@ -129,7 +130,7 @@ class GarbageCollector:
 				#print "refer to new position " + str(new_index) + " into " + str(p)
 				self.heap[p] = new_index
 			# self.print_status("after moving blockling " + str(p))
-		print "returning index " + str(new_index)
+		# print "returning index " + str(new_index)
 		return new_index
 
 	def process_block(self, block_size, overhead, index, to_index, isPromotion):
@@ -151,7 +152,7 @@ class GarbageCollector:
 		
 
 	def process_vector(self, index, to_index, isPromotion):
-		print "processing vector from index " + str(index) + " to index " + str(to_index)
+		# print "processing vector from index " + str(index) + " to index " + str(to_index)
 		block_size = self.heap[index + 1] + 2
 		overhead = 2 # overhead size is not pointers - tag, num of elements etc
 		return self.process_block(block_size, overhead, index, to_index, isPromotion) 
@@ -258,27 +259,25 @@ class GarbageCollector:
 		if index != from_index:
 			self.heap[from_index] = self.heap[index + 1]
 
-	def get_promotion_index(self, index):
-		# deletes the element from old list, too
-		for part in self.promotion_list:
-			for number in part:
-				if number==index:
-					number_index = part.index(number)
-					list_number = self.promotion_list.index(part)
-					print str(number_index) + " and " + str(list_number)
-					del self.promotion_list[list_number][number_index]
-					return number_index
-		return -1
 
 	def update_collection_times(self, heap_root_index, to_index):
-		old_promotion_index = self.get_promotion_index(heap_root_index)
-		self.promotion_list[old_promotion_index + 1].append(to_index)
+		old_pos = -1
+		for part in self.promotion_list:
+			# for every sub-list
+			if heap_root_index in part:
+				number_index = part.index(heap_root_index)
+				list_number = self.promotion_list.index(part)
+				del self.promotion_list[list_number][number_index]
+				old_pos = list_number
+				break
+		if to_index not in self.promotion_list[old_pos + 1]:
+			self.promotion_list[old_pos + 1].append(to_index)
+
 			
 
 	def process_tag(self, tag, heap_root_index, from_index, to_index, isPromotion):
-
-		self.update_collection_times(heap_root_index, to_index)
-
+		if tag != "FWD":
+			self.update_collection_times(heap_root_index, to_index)
 
 		if tag == self.INT or tag == "INT":
 			new_index = self.process_int(heap_root_index, to_index, isPromotion)
@@ -324,13 +323,13 @@ class GarbageCollector:
 
 
 	def collect_garbage(self):
-		self.print_status("INITIAL")
-		print self.promotion_list
+		# self.print_status("INITIAL")
+		# print self.promotion_list
 		for root in self.roots:
 			self.process_pointer(root, root, self.current_moving_index, False)
 			
-		self.print_status("BEFORE CLEANUP")
-		print self.promotion_list
+		# self.print_status("BEFORE CLEANUP")
+		# print self.promotion_list
 		cleaning_start = self.FROM	
 		cleaning_end = cleaning_start + self.SPACE_SIZE
 
