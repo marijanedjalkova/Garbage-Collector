@@ -48,8 +48,8 @@ class GarbageCollector:
 			self.moved_roots.append(to_index)
 			new_index = self.simple_copy_2_elements(index, to_index)
 		else:
-			new_gen_index = self.find_empty(2);
-			new_index = self.simple_copy_2_elements(index, new_gen_index)
+			#new_gen_index = self.find_empty(2);
+			new_index = self.simple_copy_2_elements(index, to_index)
 		return new_index
 
 
@@ -251,7 +251,7 @@ class GarbageCollector:
 				return to_index
 				
 		else:
-			new_gen_index = self.find_empty(2);
+			# new_gen_index = self.find_empty(2);
 			new_index = self.simple_copy_2_elements(index, to_index, new_gen_index)
 		return new_index
 			
