@@ -27,13 +27,6 @@ class GarbageCollector:
 		print self.promotion_list
 		print "________"
 
-	"""finds first empty cell in specified generation"""
-	def find_empty(self, gen):
-		start = self.GENERATION_SIZE*(gen - 1)
-		while self.heap[start] is not None:
-			start += 1
-		return start
-
 	def simple_copy_2_elements(self, index, to_index):
 		self.heap[to_index] = self.heap[index]
 		self.heap[index] = "FWD"
@@ -48,7 +41,6 @@ class GarbageCollector:
 			self.moved_roots.append(to_index)
 			new_index = self.simple_copy_2_elements(index, to_index)
 		else:
-			#new_gen_index = self.find_empty(2);
 			new_index = self.simple_copy_2_elements(index, to_index)
 		return new_index
 
@@ -70,8 +62,7 @@ class GarbageCollector:
 			else:
 				return to_index
 		else:
-			new_gen_index = self.find_empty(2);
-			new_index = self.simple_copy_2_elements(index, new_gen_index)
+			new_index = self.simple_copy_2_elements(index, to_index)
 		return new_index
 
 	def process_bool(self, index, to_index, isPromotion):
@@ -80,8 +71,7 @@ class GarbageCollector:
 			self.moved_roots.append(to_index)
 			new_index = self.simple_copy_2_elements(index, to_index)
 		else:
-			new_gen_index = self.find_empty(2);
-			new_index = self.simple_copy_2_elements(index, new_gen_index)
+			new_index = self.simple_copy_2_elements(index, to_index)
 		return new_index
 
 	def process_pointer(self, pointer_index, from_index, to_index, isPromotion):
@@ -93,8 +83,7 @@ class GarbageCollector:
 		# from index is 35
 		#print "pointer index is " + str(pointer_index)
 		tag = self.heap[pointer_index]
-		if isPromotion:
-			print "tag " + str(tag)
+		
 		return self.process_tag(tag, pointer_index, from_index, to_index, isPromotion)
 
 	def move_block(self, index, to_index, block_size, overhead, isPromotion):
@@ -142,8 +131,7 @@ class GarbageCollector:
 			
 			new_index = self.move_block(index, to_index, block_size, overhead, isPromotion)
 		else:
-			new_gen_index = self.find_empty(2)
-			new_index = self.move_block(index, new_gen_index, block_size, overhead, isPromotion)
+			new_index = self.move_block(index, to_index, block_size, overhead, isPromotion)
 		return new_index
 
 	def process_cons(self, index, to_index, isPromotion):
@@ -222,8 +210,8 @@ class GarbageCollector:
 				return to_index
 
 		else:
-			new_gen_index = self.find_empty(2)
-			new_index = self.move_exception(index, new_gen_index, isPromotion)
+
+			new_index = self.move_exception(index, to_index, isPromotion)
 		return new_index
 
 
@@ -251,8 +239,7 @@ class GarbageCollector:
 				return to_index
 				
 		else:
-			# new_gen_index = self.find_empty(2);
-			new_index = self.simple_copy_2_elements(index, to_index, new_gen_index)
+			new_index = self.simple_copy_2_elements(index, to_index)
 		return new_index
 			
 
