@@ -21,7 +21,7 @@ class GarbageCollector:
 		
 	def print_status(self, desc):
 		print "--------------"
-		print desc
+		print desc.upper()
 		print self.heap
 		print self.promotion_list
 		print "________"
@@ -71,11 +71,11 @@ class GarbageCollector:
 		# e.g. if after copying there was a reference to cell 6 in cell 35, 
 		# from index is 35
 		#print "pointer index is " + str(pointer_index)
-		if isPromotion:
-			self.print_status("-----------------------------------------------------")
+		#if isPromotion:
+			#self.print_status("-----------------------------------------------------")
 		
 		tag = self.heap[pointer_index]
-		print "tag " + str(tag) + " from " + str(from_index) + " to " + str(to_index)
+		# print "tag " + str(tag) + " from " + str(from_index) + " to " + str(to_index)
 		return self.process_tag(tag, pointer_index, from_index, to_index, isPromotion)
 
 	def move_block(self, index, to_index, block_size, overhead, isPromotion):
@@ -308,9 +308,9 @@ class GarbageCollector:
 			return (to_index, False)
 		print "Error tag : " + str(tag) + " at index " + str(heap_root_index)
 
-	def clearFWDs(self):
-		position = 0
-		while position < self.GENERATION_SIZE or self.heap[position] is not None:
+	def clearFWDs(self, start_index, end_index):
+		position = start_index
+		while position < end_index:
 			if self.heap[position] == "FWD":
 				self.heap[position] = None
 				self.heap[position + 1] = None
@@ -323,13 +323,43 @@ class GarbageCollector:
 				position += 1
 
 
+	def compress(self, start_index, end_index):
+		#print "Compressong between " + str(start_index) + " and " + str(end_index)
+		writing_index = start_index
+		tracking_index = start_index
+		while self.heap[writing_index] is not None and tracking_index < end_index:
+			writing_index += 1
+			tracking_index += 1
+		# at this point we know where to write things to
+		# and where to write things from
+
+		while tracking_index < end_index:
+			while self.heap[tracking_index] is None and tracking_index < end_index:
+				tracking_index += 1
+			if tracking_index == end_index:
+				return
+			#print "COMPRESSION: from " + str(tracking_index) + " to " + str(writing_index)
+			print self.heap[tracking_index]
+			tracking_index = self.process_pointer(tracking_index, tracking_index, writing_index, True)
+			while self.heap[writing_index] is not None:
+				writing_index += 1
+		self.cross_reference(0, len(self.heap))
+		self.clearFWDs(0, len(self.heap))
+
+
+
+
 	def promote(self):
 		to_promote = self.promotion_list[len(self.promotion_list)-1]
 		where_to = self.GENERATION_SIZE
 		for element in to_promote:
 			where_to = self.process_pointer(element, element, where_to, True)[0]
-		self.cross_reference()
-		self.clearFWDs()
+		self.cross_reference(0, self.GENERATION_SIZE)
+		self.clearFWDs(0, len(self.heap))
+		self.print_status("BEFORE COMPRESSING")
+		self.compress(0, self.SPACE_SIZE)
+		self.compress(self.SPACE_SIZE, self.GENERATION_SIZE)
+		self.print_status("AFTER COMPRESSING")
 		self.promotion_list[len(self.promotion_list)-1] = []
 
 	def checkPointer(self, pos):
@@ -350,8 +380,8 @@ class GarbageCollector:
 			self.heap[pos] = res;
 
 		
-	def cross_reference(self):
-		position = 0
+	def cross_reference(self, start_index, end_index):
+		position = start_index
 		while position < self.GENERATION_SIZE or self.heap[position] is not None:
 			if self.heap[position] == self.CONS or self.heap[position] == "CONS":
 				self.move_pointer_reference(position + 1)
