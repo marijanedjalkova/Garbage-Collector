@@ -324,7 +324,8 @@ class GarbageCollector:
 
 	def compress(self):
 		# have to move everything to the beginning of each space
-		
+		pass
+
 
 	def promote(self):
 		to_promote = self.promotion_list[len(self.promotion_list)-1]
@@ -340,21 +341,31 @@ class GarbageCollector:
 		numberi = self.heap[pos]
 		original_tag = self.heap[numberi]
 		if original_tag == "FWD":
+			
 			data = self.heap[numberi + 1]
-			self.heap[pos] = data
+			if self.heap[data] == "FWD":
+				return checkPointer(numberi + 1)
+			else:
+				return data
+		return -1
+
+	def move_pointer_reference(self, pos):
+		res = self.checkPointer(pos)
+		if res != -1:
+			self.heap[pos] = res;
 
 		
 	def cross_reference(self):
 		position = 0
 		while position < self.GENERATION_SIZE or self.heap[position] is not None:
 			if self.heap[position] == self.CONS or self.heap[position] == "CONS":
-				self.checkPointer(position + 1)
-				self.checkPointer(position + 2)
+				self.move_pointer_reference(position + 1)
+				self.move_pointer_reference(position + 2)
 				position += 3
 				continue
 			if self.heap[position] == self.VECTOR or self.heap[position] == "VECTOR":
 				for i in range(1, self.heap[position+1]):
-					self.checkPointer(position + i)
+					self.move_pointer_reference(position + i)
 				position += self.heap[position+1] + 2
 				continue
 			if self.heap[position] == self.ARRAY or self.heap[position] == "ARRAY":
@@ -365,11 +376,11 @@ class GarbageCollector:
 				block_size = 2 + n + m
 				overhead = 2 + n
 				for i in range(overhead, block_size):
-					self.checkPointer(position + i)
+					self.move_pointer_reference(position + i)
 				position += block_size
 				continue
 			if self.heap[position] == self.EXCEPTION or self.heap[position] == "EXCEPTION":
-				self.checkPointer(position + 2)
+				self.move_pointer_reference(position + 2)
 				position += 3
 				continue
 			else:
