@@ -322,10 +322,6 @@ class GarbageCollector:
 			else:
 				position += 1
 
-	def compress(self):
-		# have to move everything to the beginning of each space
-		pass
-
 
 	def promote(self):
 		to_promote = self.promotion_list[len(self.promotion_list)-1]
@@ -334,7 +330,6 @@ class GarbageCollector:
 			where_to = self.process_pointer(element, element, where_to, True)[0]
 		self.cross_reference()
 		self.clearFWDs()
-		self.compress()
 		self.promotion_list[len(self.promotion_list)-1] = []
 
 	def checkPointer(self, pos):
@@ -386,6 +381,7 @@ class GarbageCollector:
 			else:
 				position += 1
 				continue
+
 
 	def collect_garbage(self):
 		where_to = self.TO
