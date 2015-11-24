@@ -3,8 +3,6 @@ class GarbageCollector:
 		self.heap = []
 		self.SPACE_SIZE = 30
 		self.GENERATION_SIZE = self.SPACE_SIZE * 2
-		self.current_moving_index = 0 # this marks where to put the next thing
-		self.current_tracing_index = 0 # this shows where we are in the old section
 		self.INT = 11
 		self.STRING = 12
 		self.BOOL = 13
@@ -19,6 +17,7 @@ class GarbageCollector:
 		self.NIL = -1
 		self.moved_roots = [] # this is for preserving roots when doing gc > once
 		self.promotion_list = [[], [], [], [], []] 
+		# this is for tracking amount of gcs an element survived
 		
 	def print_status(self, desc):
 		print "--------------"
@@ -39,11 +38,7 @@ class GarbageCollector:
 		# length of the block is 2
 		if not isPromotion:
 			self.moved_roots.append(to_index)
-			new_index = self.simple_copy_2_elements(index, to_index)
-		else:
-			new_index = self.simple_copy_2_elements(index, to_index)
-		return new_index
-
+		return self.simple_copy_2_elements(index, to_index)
 
 	def process_string(self, index, to_index, isPromotion):
 		# this is implemented as a var, i.e. the string object lies in the 
@@ -58,21 +53,15 @@ class GarbageCollector:
 				string_tuple = self.mapping_table.pop(string_code) # returns ("myVar", False)
 				self.mapping_table[string_code] = (string_tuple[0], True) # mark as checked
 				self.moved_roots.append(to_index)
-				new_index = self.simple_copy_2_elements(index, to_index)
+				return self.simple_copy_2_elements(index, to_index)
 			else:
 				return to_index
-		else:
-			new_index = self.simple_copy_2_elements(index, to_index)
-		return new_index
+		return self.simple_copy_2_elements(index, to_index)
 
 	def process_bool(self, index, to_index, isPromotion):
 		if not isPromotion:
-			
 			self.moved_roots.append(to_index)
-			new_index = self.simple_copy_2_elements(index, to_index)
-		else:
-			new_index = self.simple_copy_2_elements(index, to_index)
-		return new_index
+		return self.simple_copy_2_elements(index, to_index)
 
 	def process_pointer(self, pointer_index, from_index, to_index, isPromotion):
 		# pointer_index is the value that points onto the original value of the pointer
@@ -129,10 +118,8 @@ class GarbageCollector:
 		if not isPromotion:
 			self.moved_roots.append(to_index)
 			
-			new_index = self.move_block(index, to_index, block_size, overhead, isPromotion)
-		else:
-			new_index = self.move_block(index, to_index, block_size, overhead, isPromotion)
-		return new_index
+		return self.move_block(index, to_index, block_size, overhead, isPromotion)
+		
 
 	def process_cons(self, index, to_index, isPromotion):
 		block_size = 3
@@ -159,6 +146,7 @@ class GarbageCollector:
 		return self.process_block(block_size, overhead, index, to_index, isPromotion)
 			
 	def move_exception(self, index, to_index, isPromotion):
+		
 		self.heap[to_index] = self.heap[index]
 		self.heap[index] = "FWD"
 		
@@ -169,23 +157,27 @@ class GarbageCollector:
 		self.heap[to_index + 2] = self.heap[index + 2]
 		self.heap[index + 2] = "-"
 
+			
+		if not isPromotion:
 			# this repeats part of the process_block since we cannot reuse it fully
+			p = to_index + 2 
+				# 2 is the only element of the range(overhead, block_size) = range(2, 3)
+				# so there is only one p in pointers
 
-		p = to_index + 2 
-			# 2 is the only element of the range(overhead, block_size) = range(2, 3)
-			# so there is only one p in pointers
+			to_index += 3
 
-		to_index += 3
+			new_index = to_index
+			
+			result = self.process_pointer(self.heap[p], p, new_index, isPromotion)
+			res = result[1]
+			to_index = result[0]
+			new_index = to_index
 
-		new_index = to_index
+			if res:
+					self.heap[p] = new_index
+		else:
+			new_index = to_index + 3
 		
-		result = self.process_pointer(self.heap[p], p, new_index, isPromotion)
-		res = result[1]
-		to_index = result[0]
-		self.current_moving_index = to_index
-
-		if res:
-				self.heap[p] = new_index
 		return new_index
 
 
@@ -234,15 +226,13 @@ class GarbageCollector:
 				var_tuple = self.mapping_table.pop(var_code) # returns ("myVar", False)
 				self.mapping_table[var_code] = (var_tuple[0], True) # mark as checked
 				self.moved_roots.append(to_index)
-				new_index = self.simple_copy_2_elements(index, to_index)
+				return self.simple_copy_2_elements(index, to_index)
 			else:
 				return to_index
 				
-		else:
-			new_index = self.simple_copy_2_elements(index, to_index)
-		return new_index
-			
+		return self.simple_copy_2_elements(index, to_index)
 
+			
 	def process_fwd(self, index, from_index, to_index, isPromotion):
 		if index != from_index:
 			self.heap[from_index] = self.heap[index + 1]
@@ -297,16 +287,11 @@ class GarbageCollector:
 		if tag == "FWD":
 			self.process_fwd(heap_root_index, from_index, to_index, isPromotion)
 			return (to_index, False)
-		print "Error tag : " + str(tag)
+		print "Error tag : " + str(tag) + " at index " + str(heap_root_index)
 
 	def promote(self):
-		# check what is in the fifth element of the promotion list
-		# promote
-		# delete from list
-
 		to_promote = self.promotion_list[len(self.promotion_list)-1]
-		print " TO PROMOTE"
-		print to_promote
+		
 		for element in to_promote:
 			self.process_pointer(element, element, self.GENERATION_SIZE, True)
 		self.promotion_list[len(self.promotion_list)-1] = []
@@ -317,7 +302,7 @@ class GarbageCollector:
 		# self.print_status("INITIAL")
 		# print self.promotion_list
 		for root in self.roots:
-			self.process_pointer(root, root, self.current_moving_index, False)
+			self.process_pointer(root, root, self.TO, False)
 			
 		# self.print_status("BEFORE CLEANUP")
 		# print self.promotion_list
@@ -327,7 +312,7 @@ class GarbageCollector:
 		for i in range(cleaning_start, cleaning_end):
 			self.heap[i] = None
 
-		self.promote()
+		# self.promote()
 		self.swap_spaces()
 		self.roots = self.moved_roots
 		self.moved_roots = []
@@ -338,15 +323,17 @@ class GarbageCollector:
 		tmp = self.TO
 		self.TO = self.FROM
 		self.FROM = tmp
-		self.current_moving_index = self.TO
-
+		
 
 	def initialise_heap(self):
 		
 		self.heap = []
-		self.heap.extend(["EXCEPTION", 101, 3])
+		self.heap.extend(["BOOL", False])
+		self.heap.extend(["EXCEPTION", 101, 0])
 		self.heap.extend(["INT", 77])
-		self.heap.extend(["ARRAY", 2, 3, 2, 0, 5, 3, 0, 5, 3])
+
+		self.heap.extend(["ARRAY", 1, 4, 2, 0, 5, 14])
+		self.heap.extend(["INT", 45])#14
 		self.heap.extend(["VAR", 101])
 
 		self.heap.extend(["STRING", 201])
@@ -357,21 +344,19 @@ class GarbageCollector:
 
 		#self.heap.extend(["VECTOR", 3, 9, 11, 3])
 
-		
-		
 		self.heap.extend(["CONS", 3, 7])
 		for i in range(0, 80):
 			self.heap.append(None)
 		
 		self.FROM = 0
 		self.TO = self.FROM + self.SPACE_SIZE
-		self.current_moving_index = self.TO
+		
 		self.elements = [] # this is for counting how mahy times things survived gc
 
 
 	def initialise_roots(self):
 		self.roots = []
-		self.roots.append(5)
+		self.roots.append(7)
 
 		
 		
@@ -401,7 +386,7 @@ def main():
 	gc.initialise_mapping_table()
 	# at this point we have something that has to be garbage collected in the heap
 	# and also the current index shows the first empty cell after all the code
-	
+	gc.print_status("INITIAL")
 	gc.collect_garbage()
 	gc.print_status("FINAL1")
 
@@ -413,10 +398,24 @@ def main():
 
 	gc.collect_garbage()
 	gc.print_status("FINAL4")
-
+	gc.heap[2] = 5 
+	gc.heap[3] = 8
+	gc.heap[4] = 13
+	gc.heap[5] = 11
+	gc.heap[6] = 15
+	gc.heap[9] = 13
+	gc.heap.insert(7, 17)
+	gc.heap.insert(17, "INT") 
+	gc.heap.insert(18, 33) 
+	gc.roots = [0]
+	print gc.promotion_list
+	gc.promotion_list[3] = [0, 8, 11, 13, 15]
+	print gc.heap
+	print "===================="
 	gc.collect_garbage()
 	gc.print_status("FINAL5")
-
+	gc.promote()
+	gc.print_status("very final")
 	print "finished execution successfully"
 
 
