@@ -71,46 +71,64 @@ class GarbageCollector:
 		# e.g. if after copying there was a reference to cell 6 in cell 35, 
 		# from index is 35
 		#print "pointer index is " + str(pointer_index)
-		tag = self.heap[pointer_index]
+		if isPromotion:
+			self.print_status("-----------------------------------------------------")
 		
+		tag = self.heap[pointer_index]
+		print "tag " + str(tag) + " from " + str(from_index) + " to " + str(to_index)
 		return self.process_tag(tag, pointer_index, from_index, to_index, isPromotion)
 
 	def move_block(self, index, to_index, block_size, overhead, isPromotion):
-		# print "moving block of sieze" + str(block_size) + " from index " + str(index) + " to " + str(to_index)
-		for i in range(0, block_size):
-			# print "will be writing this: " + str(self.heap[index + i]) + "  here: " + str(to_index + i)
-			self.heap[to_index + i] = self.heap[index + i]
-			if i == 0:
-				self.heap[index + i] = "FWD"
-				continue
-			if i == 1:
-				self.heap[index + i] = to_index
-				continue
-			else:
-				self.heap[index + i] = "-"
-			
-		# self.print_status("just copied")	
-		pointers = [to_index + k for k in range(overhead, block_size)]
-		
-		to_index += block_size
-		# pointers are places in heap new space where old pointers are held.
-		for p in pointers:
-			# print "pointer p: " + str(p)
+		if not isPromotion:
+			for i in range(0, block_size):
+				# print "will be writing this: " + str(self.heap[index + i]) + "  here: " + str(to_index + i)
+				self.heap[to_index + i] = self.heap[index + i]
+				if i == 0:
+					self.heap[index + i] = "FWD"
+					continue
+				if i == 1:
+					self.heap[index + i] = to_index
+					continue
+				else:
+					self.heap[index + i] = "-"
+				
+			pointers = [to_index + k for k in range(overhead, block_size)]
+			# pointers are places in heap new space where old pointers are held.
+			to_index += block_size
+			for p in pointers:
+				# print "pointer p: " + str(p)
+				new_index = to_index
+				
+				#print "new index is " + str(new_index) +  " give to pp " + str(self.heap[p]) + " and " + str(p)
+				result = self.process_pointer(self.heap[p], p, to_index, isPromotion)
+				# print "returned " + str(result)
+				res = result[1]
+				to_index = result[0]
+				
+				# self.print_status("after pp")
+				if res:
+					#print "refer to new position " + str(new_index) + " into " + str(p)
+					self.heap[p] = new_index
+				# self.print_status("after moving blockling " + str(p))
+			# print "returning index " + str(new_index)
+			return new_index
+		else:
+			for i in range(0, block_size):
+				
+				self.heap[to_index + i] = self.heap[index + i]
+				if i == 0:
+					self.heap[index + i] = "FWD"
+					continue
+				if i == 1:
+					self.heap[index + i] = to_index
+					continue
+				else:
+					self.heap[index + i] = "-"
+			to_index += block_size
 			new_index = to_index
 			
-			#print "new index is " + str(new_index) +  " give to pp " + str(self.heap[p]) + " and " + str(p)
-			result = self.process_pointer(self.heap[p], p, to_index, isPromotion)
-			# print "returned " + str(result)
-			res = result[1]
-			to_index = result[0]
-			
-			# self.print_status("after pp")
-			if res:
-				#print "refer to new position " + str(new_index) + " into " + str(p)
-				self.heap[p] = new_index
-			# self.print_status("after moving blockling " + str(p))
-		# print "returning index " + str(new_index)
-		return new_index
+			return new_index
+
 
 	def process_block(self, block_size, overhead, index, to_index, isPromotion):
 		# this is for common blocks such as cons, arrays, vectors
@@ -142,11 +160,12 @@ class GarbageCollector:
 			m *= self.heap[index + 2 + i]
 		block_size = 2 + n + m
 		overhead = 2 + n
-		
-		return self.process_block(block_size, overhead, index, to_index, isPromotion)
+		result = self.process_block(block_size, overhead, index, to_index, isPromotion)
+		print "array returns " + str(result)
+		return result
 			
 	def move_exception(self, index, to_index, isPromotion):
-		
+
 		self.heap[to_index] = self.heap[index]
 		self.heap[index] = "FWD"
 		
@@ -289,20 +308,78 @@ class GarbageCollector:
 			return (to_index, False)
 		print "Error tag : " + str(tag) + " at index " + str(heap_root_index)
 
+	def clearFWDs(self):
+		position = 0
+		while position < self.GENERATION_SIZE or self.heap[position] is not None:
+			if self.heap[position] == "FWD":
+				self.heap[position] = None
+				self.heap[position + 1] = None
+				if self.heap[position + 2] == "-":
+					i = 0
+					while self.heap[position + 2 + i] == "-":
+						self.heap[position + 2 + i] = None
+						i += 1
+			else:
+				position += 1
+
+	def compress(self):
+		# have to move everything to the beginning of each space
+		
+
 	def promote(self):
 		to_promote = self.promotion_list[len(self.promotion_list)-1]
-		
+		where_to = self.GENERATION_SIZE
 		for element in to_promote:
-			self.process_pointer(element, element, self.GENERATION_SIZE, True)
+			where_to = self.process_pointer(element, element, where_to, True)[0]
+		self.cross_reference()
+		self.clearFWDs()
+		self.compress()
 		self.promotion_list[len(self.promotion_list)-1] = []
-		
 
+	def checkPointer(self, pos):
+		numberi = self.heap[pos]
+		original_tag = self.heap[numberi]
+		if original_tag == "FWD":
+			data = self.heap[numberi + 1]
+			self.heap[pos] = data
+
+		
+	def cross_reference(self):
+		position = 0
+		while position < self.GENERATION_SIZE or self.heap[position] is not None:
+			if self.heap[position] == self.CONS or self.heap[position] == "CONS":
+				self.checkPointer(position + 1)
+				self.checkPointer(position + 2)
+				position += 3
+				continue
+			if self.heap[position] == self.VECTOR or self.heap[position] == "VECTOR":
+				for i in range(1, self.heap[position+1]):
+					self.checkPointer(position + i)
+				position += self.heap[position+1] + 2
+				continue
+			if self.heap[position] == self.ARRAY or self.heap[position] == "ARRAY":
+				n = self.heap[position + 1]
+				m = 1
+				for i in range(0, n):
+					m *= self.heap[position + 2 + i]
+				block_size = 2 + n + m
+				overhead = 2 + n
+				for i in range(overhead, block_size):
+					self.checkPointer(position + i)
+				position += block_size
+				continue
+			if self.heap[position] == self.EXCEPTION or self.heap[position] == "EXCEPTION":
+				self.checkPointer(position + 2)
+				position += 3
+				continue
+			else:
+				position += 1
+				continue
 
 	def collect_garbage(self):
-		# self.print_status("INITIAL")
-		# print self.promotion_list
+		where_to = self.TO
 		for root in self.roots:
-			self.process_pointer(root, root, self.TO, False)
+			where_to = self.process_pointer(root, root, where_to, False)[0]
 			
 		# self.print_status("BEFORE CLEANUP")
 		# print self.promotion_list
