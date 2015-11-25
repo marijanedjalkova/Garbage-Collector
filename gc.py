@@ -22,9 +22,14 @@ class GarbageCollector:
 	def print_status(self, desc):
 		print "--------------"
 		print desc.upper()
-		print self.heap
+		print "Space 1: "
+		print self.heap[:self.SPACE_SIZE]
+		print "Space 2: "
+		print self.heap[self.SPACE_SIZE:self.GENERATION_SIZE]
+		print "Old generation: "
+		print self.heap[self.GENERATION_SIZE:]
 		print self.promotion_list
-		print "________"
+		print "______________"
 
 	def simple_copy_2_elements(self, index, to_index):
 		self.heap[to_index] = self.heap[index]
@@ -46,15 +51,18 @@ class GarbageCollector:
 		# when a string is referenced, check it up in the mapping table and copy.
 		# in the mapping table, mark as checked.
 		# mention in the report that it actually clears the memory
+		print "processign string"
 		if not isPromotion:
 			string_code = self.heap[index + 1]
 			if string_code in self.mapping_table:
 				# length of the block is 2
+				print "to_index for it is " + str(to_index)
 				string_tuple = self.mapping_table.pop(string_code) # returns ("myVar", False)
 				self.mapping_table[string_code] = (string_tuple[0], True) # mark as checked
 				self.moved_roots.append(to_index)
 				return self.simple_copy_2_elements(index, to_index)
 			else:
+				print "could not find it in the mapping_table"
 				return to_index
 		return self.simple_copy_2_elements(index, to_index)
 
@@ -76,7 +84,10 @@ class GarbageCollector:
 		
 		tag = self.heap[pointer_index]
 		# print "tag " + str(tag) + " from " + str(from_index) + " to " + str(to_index)
-		return self.process_tag(tag, pointer_index, from_index, to_index, isPromotion)
+
+		result =  self.process_tag(tag, pointer_index, from_index, to_index, isPromotion)
+		#print " tag " + str(tag) + " returned " + str(result)
+		return result
 
 	def move_block(self, index, to_index, block_size, overhead, isPromotion):
 		if not isPromotion:
@@ -95,13 +106,15 @@ class GarbageCollector:
 			pointers = [to_index + k for k in range(overhead, block_size)]
 			# pointers are places in heap new space where old pointers are held.
 			to_index += block_size
+
 			for p in pointers:
 				# print "pointer p: " + str(p)
 				new_index = to_index
-				
+				#print " will put next element " + str(self.heap[self.heap[p]]) + " into " + str(to_index)
 				#print "new index is " + str(new_index) +  " give to pp " + str(self.heap[p]) + " and " + str(p)
 				result = self.process_pointer(self.heap[p], p, to_index, isPromotion)
-				# print "returned " + str(result)
+				#print "element " + str(self.heap[self.heap[p]]) + " returned " + str(result[0])
+				
 				res = result[1]
 				to_index = result[0]
 				
@@ -110,7 +123,7 @@ class GarbageCollector:
 					#print "refer to new position " + str(new_index) + " into " + str(p)
 					self.heap[p] = new_index
 				# self.print_status("after moving blockling " + str(p))
-			# print "returning index " + str(new_index)
+			new_index = to_index
 			return new_index
 		else:
 			for i in range(0, block_size):
@@ -161,7 +174,7 @@ class GarbageCollector:
 		block_size = 2 + n + m
 		overhead = 2 + n
 		result = self.process_block(block_size, overhead, index, to_index, isPromotion)
-		print "array returns " + str(result)
+		# print "array returns " + str(result)
 		return result
 			
 	def move_exception(self, index, to_index, isPromotion):
@@ -322,9 +335,17 @@ class GarbageCollector:
 			else:
 				position += 1
 
+	def update_promotion_index(self, tracking_index, writing_index):
+		for part in self.promotion_list:
+			if tracking_index in part:
+				number_index = part.index(tracking_index)
+				list_number = self.promotion_list.index(part)
+				self.promotion_list[list_number][number_index] = writing_index
+				return
+
 
 	def compress(self, start_index, end_index):
-		#print "Compressong between " + str(start_index) + " and " + str(end_index)
+		#print "Compressing between " + str(start_index) + " and " + str(end_index)
 		writing_index = start_index
 		tracking_index = start_index
 		while self.heap[writing_index] is not None and tracking_index < end_index:
@@ -336,16 +357,22 @@ class GarbageCollector:
 		while tracking_index < end_index:
 			while self.heap[tracking_index] is None and tracking_index < end_index:
 				tracking_index += 1
+			#print "tracking index stopped at " + str(tracking_index)
 			if tracking_index == end_index:
-				return
+				break
 			#print "COMPRESSION: from " + str(tracking_index) + " to " + str(writing_index)
-			print self.heap[tracking_index]
-			tracking_index = self.process_pointer(tracking_index, tracking_index, writing_index, True)
-			while self.heap[writing_index] is not None:
-				writing_index += 1
+			#print self.heap[tracking_index]
+			if self.heap[tracking_index] != "FWD":
+				self.update_promotion_index(tracking_index, writing_index)
+				writing_index = self.process_pointer(tracking_index, tracking_index, writing_index, True)[0]
+			else:
+				tracking_index += 2
+				while self.heap[tracking_index] == "-":
+					tracking_index += 1
+			
+		#print "done with the loop"
 		self.cross_reference(0, len(self.heap))
 		self.clearFWDs(0, len(self.heap))
-
 
 
 
@@ -356,10 +383,10 @@ class GarbageCollector:
 			where_to = self.process_pointer(element, element, where_to, True)[0]
 		self.cross_reference(0, self.GENERATION_SIZE)
 		self.clearFWDs(0, len(self.heap))
-		self.print_status("BEFORE COMPRESSING")
+		# self.print_status("BEFORE COMPRESSING")
 		self.compress(0, self.SPACE_SIZE)
 		self.compress(self.SPACE_SIZE, self.GENERATION_SIZE)
-		self.print_status("AFTER COMPRESSING")
+		# self.print_status("AFTER COMPRESSING")
 		self.promotion_list[len(self.promotion_list)-1] = []
 
 	def checkPointer(self, pos):
@@ -412,6 +439,21 @@ class GarbageCollector:
 				position += 1
 				continue
 
+	def clean_promotion_list(self):
+		start_index = self.FROM
+		to_index = start_index + self.SPACE_SIZE
+		print "cleaning promotion_list from " + str(start_index) + " to " + str(to_index)
+		for part in self.promotion_list:
+			for index in part:
+				if index >= start_index and index < to_index:
+					list_index = self.promotion_list.index(part)
+					index_index = part.index(index)
+					print self.promotion_list
+					print "deleting " + str(self.promotion_list[list_index][index_index])
+					del self.promotion_list[list_index][index_index]
+					print self.promotion_list
+					
+
 
 	def collect_garbage(self):
 		where_to = self.TO
@@ -425,8 +467,8 @@ class GarbageCollector:
 
 		for i in range(cleaning_start, cleaning_end):
 			self.heap[i] = None
-
-		# self.promote()
+		self.clean_promotion_list()
+		self.promote()
 		self.swap_spaces()
 		self.roots = self.moved_roots
 		self.moved_roots = []
@@ -471,7 +513,7 @@ class GarbageCollector:
 	def initialise_roots(self):
 		self.roots = []
 		self.roots.append(7)
-
+		self.roots.append(16)
 		
 		
 	def initialise_mapping_table(self):
@@ -506,7 +548,11 @@ def main():
 
 	gc.collect_garbage()
 	gc.print_status("FINAL2")
-
+	gc.heap[18] = "STRING"
+	gc.heap[19] = 201
+	gc.mapping_table[201] = ("this wonderful string", False)
+	gc.roots.append(18)
+	gc.print_status("We added String to the heap and put it into the roots")
 	gc.collect_garbage()
 	gc.print_status("FINAL3")
 
@@ -518,18 +564,19 @@ def main():
 	gc.heap[5] = 11
 	gc.heap[6] = 15
 	gc.heap[9] = 13
-	gc.heap.insert(7, 17)
-	gc.heap.insert(17, "INT") 
-	gc.heap.insert(18, 33) 
-	gc.roots = [0]
+	gc.heap.insert(7, 21)
+	gc.heap.insert(21, "INT") 
+	gc.heap.insert(22, 33) 
+	gc.roots = [0, 19]
 	print gc.promotion_list
-	gc.promotion_list[3] = [0, 8, 11, 13, 15]
-	print gc.heap
-	print "===================="
+	
+	gc.promotion_list[3] = [0, 8, 11, 13, 15, 17]
+	gc.promotion_list[1] = [19]
+	gc.print_status("Added INT 33, and added it to the array. The root is now 0 and 19")
+	
 	gc.collect_garbage()
 	gc.print_status("FINAL5")
-	gc.promote()
-	gc.print_status("very final")
+	gc.print_status("final")
 	print "finished execution successfully"
 
 
